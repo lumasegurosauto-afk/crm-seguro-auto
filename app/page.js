@@ -34,7 +34,7 @@ export default function DashboardCRM() {
       <h2 style={{ color: '#374151', fontSize: '18px', marginBottom: '15px' }}>📊 Funil de Vendas (Acompanhamento)</h2>
       <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
         {fasesFunil.map((fase, index) => (
-          <div key={index} style={{ background: 'white', padding: '15px', borderRadius: '8px', borderLeft: `6px solid ${fase.cor}`, flex: '1', minWidth: '180px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div key={index} style={{ background: 'white', padding: '15px', borderRadius: '8px', borderLeft: '6px solid ' + fase.cor, flex: '1', minWidth: '180px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h4 style={{ margin: 0, color: '#4B5563' }}>{fase.nome}</h4>
             <p style={{ fontSize: '20px', fontWeight: 'bold', margin: '5px 0 0 0', color: '#111827' }}>{fase.qtd} {fase.qtd === 1 ? 'cliente' : 'clientes'}</p>
           </div>
@@ -42,4 +42,4 @@ export default function DashboardCRM() {
       </div>
     </div>
   );
-}}
+}
