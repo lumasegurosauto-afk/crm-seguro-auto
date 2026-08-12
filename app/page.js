@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Conecta o site com as chaves que você guardou na Vercel
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -12,7 +11,6 @@ export default function DashboardCRM() {
   const [metricas, setMetricas] = useState({ totalPremios: 0, totalComissao: 0, renovacoesTrintaDias: 0 });
   const [carregando, setCarregando] = useState(true);
   
-  // Caixas de texto do formulário
   const [nome, setNome] = useState('');
   const [cpf, setCpf] = useState('');
   const [veiculo, setVeiculo] = useState('');
@@ -20,7 +18,6 @@ export default function DashboardCRM() {
   const [comissao, setComissao] = useState('');
   const [dataVencimento, setDataVencimento] = useState('');
 
-  // Busca os dados salvos lá no seu Supabase
   async function carregarDados() {
     setCarregando(true);
     try {
@@ -63,11 +60,9 @@ export default function DashboardCRM() {
     }
   }, []);
 
-  // O que acontece quando você clica no botão verde de salvar
   const handleSalvar = async (e) => {
     e.preventDefault();
     try {
-      // 1. Salva o cliente na primeira gaveta
       const { data: novoCliente, error: errCliente } = await supabase
         .from('clientes')
         .insert([{ nome, cpf_cnpj: cpf }])
@@ -76,7 +71,6 @@ export default function DashboardCRM() {
         
       if (errCliente) throw errCliente;
 
-      // 2. Salva o carro na segunda gaveta
       const { data: novoVeiculo, error: errVeiculo } = await supabase
         .from('veiculos')
         .insert([{ cliente_id: novoCliente.id, marca_modelo: veiculo }])
@@ -85,7 +79,6 @@ export default function DashboardCRM() {
 
       if (errVeiculo) throw errVeiculo;
 
-      // 3. Salva a apólice na terceira gaveta
       const dataInicio = new Date().toISOString().split('T')[0];
       const { error: errApolice } = await supabase
         .from('apolices')
@@ -116,7 +109,6 @@ export default function DashboardCRM() {
         <p style={{ color: '#6B7280', margin: '5px 0 0 0' }}>Painel Administrativo Conectado ao Banco de Dados</p>
       </header>
 
-      {/* Indicadores do topo */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
         <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flex: '1', minWidth: '200px' }}>
           <h3 style={{ color: '#6B7280', margin: 0, fontSize: '14px' }}>💰 Minha Carteira (Total Prêmios)</h3>
@@ -133,7 +125,6 @@ export default function DashboardCRM() {
       </div>
 
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-        {/* Formulário para você digitar os dados dos clientes */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '10px', flex: '1', minWidth: '320px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
           <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#374151' }}>📝 Cadastrar Nova Apólice</h2>
           <form onSubmit={handleSalvar} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -150,7 +141,6 @@ export default function DashboardCRM() {
           </form>
         </div>
 
-        {/* Tabela de clientes ativos e alertas de vencimento */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '10px', flex: '2', minWidth: '320px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
           <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#374151' }}>📋 Clientes Cadastrados na Carteira</h2>
           {carregando ? (
@@ -182,3 +172,9 @@ export default function DashboardCRM() {
                 );
               })}
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
