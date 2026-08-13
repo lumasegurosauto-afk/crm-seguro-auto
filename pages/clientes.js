@@ -1,18 +1,48 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { listarClientesCompleto } from '../lib/segurosService';
+import { listarClientesCompleto, anexarApolice } from '../lib/segurosService';
 
 export default function ListaClientes() {
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [statusUpload, setStatusUpload] = useState({});
+
+  // Função para carregar ou recarregar os dados da tela
+  async function atualizarLista() {
+    const res = await listarClientesCompleto();
+    setClientes(res);
+    setCarregando(false);
+  }
 
   useEffect(() => {
-    listarClientesCompleto().then(res => {
-      setClientes(res);
-      setCarregando(false);
-    });
+    atualizarLista();
   }, []);
+
+  // Função que gerencia o upload tardio da apólice
+  async function handleUploadTardio(e, apoliceId, clienteId) {
+    const arquivoSelecionado = e.target.files?.[0];
+    if (!arquivoSelecionado || !apoliceId) return;
+
+    // Define o status de carregando para esta linha específica
+    setStatusUpload(prev => ({ ...prev, [clienteId]: 'Enviando...' }));
+
+    try {
+      const resultado = await anexarApolice(arquivoSelecionado, apoliceId);
+      
+      if (resultado.success) {
+        setStatusUpload(prev => ({ ...prev, [clienteId]: '✅ Sucesso!' }));
+        // Recarrega a tabela para o botão azul aparecer na hora
+        await atualizarLista();
+      } else {
+        alert(`Falha no upload: ${resultado.message}`);
+        setStatusUpload(prev => ({ ...prev, [clienteId]: '' }));
+      }
+    } catch (error) {
+      alert(`Erro no sistema: ${error.message}`);
+      setStatusUpload(prev => ({ ...prev, [clienteId]: '' }));
+    }
+  }
 
   if (carregando) return <div style={{ padding: '20px', textAlign: 'center' }}>Carregando listagem de clientes...</div>;
 
@@ -33,15 +63,15 @@ export default function ListaClientes() {
                 <th style={{ padding: '12px' }}>Nome</th>
                 <th style={{ padding: '12px' }}>CPF / CNPJ</th>
                 <th style={{ padding: '12px' }}>Contato</th>
-                <th style={{ padding: '12px' }}>Veículo Cadastrado</th>
+                <th style={{ padding: '12px' }}>Veículo</th>
                 <th style={{ padding: '12px' }}>Origem</th>
-                <th style={{ padding: '12px' }}>Apólice</th> {/* Nova Coluna */}
+                <th style={{ padding: '12px' }}>Apólice / Ações</th>
               </tr>
             </thead>
             <tbody>
               {clientes.map((c) => {
-                const carro = Array.isArray(c.veiculos) ? c.veiculos[0] : c.veiculos;
-                // Busca a primeira apólice vinculada se ela existir
+                const carro = c.veiculos;
+                // Busca a primeira apólice vinculada ao cliente
                 const apolice = Array.isArray(c.apolices) ? c.apolices[0] : c.apolices;
 
                 return (
@@ -61,8 +91,8 @@ export default function ListaClientes() {
                         {c.origem_lead || 'Direto'}
                       </span>
                     </td>
-                    {/* COLUNA DO BOTÃO DE ARQUIVO ANEXADO */}
                     <td style={{ padding: '12px' }}>
+                      {/* Se já tiver o PDF, mostra o botão azul tradicional */}
                       {apolice?.url_pdf_apolice ? (
                         <a 
                           href={apolice.url_pdf_apolice} 
@@ -72,8 +102,24 @@ export default function ListaClientes() {
                         >
                           📄 Ver PDF
                         </a>
+                      ) : apolice?.id ? (
+                        // Se não tiver o PDF mas tiver uma apólice/proposta criada, mostra o seletor de arquivo
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          <label style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>📎 Anexar Apólice:</label>
+                          <input 
+                            type="file" 
+                            accept="application/pdf" 
+                            onChange={(e) => handleUploadTardio(e, apolice.id, c.id)}
+                            style={{ fontSize: '12px', maxWidth: '180px' }}
+                          />
+                          {statusUpload[c.id] && (
+                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ff9800' }}>
+                              {statusUpload[c.id]}
+                            </span>
+                          )}
+                        </div>
                       ) : (
-                        <span style={{ color: '#999', fontSize: '12px' }}>Sem anexo</span>
+                        <span style={{ color: '#999', fontSize: '12px' }}>Sem apólice no funil</span>
                       )}
                     </td>
                   </tr>
