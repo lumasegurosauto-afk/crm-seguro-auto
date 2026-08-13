@@ -1,113 +1,66 @@
-import { supabase } from './supabaseClient';
+'use client';
 
-// 1. CONTADORES DO DASHBOARD (Clientes e Propostas)
-async function buscarContadoresDashboard() {
-  try {
-    const { count: totalClientes } = await supabase
-      .from('clientes')
-      .select('*', { count: 'exact', head: true });
+import { useEffect, useState } from 'react';
+import { listarClientesCompleto } from '../lib/segurosService'; // Rota corrigida!
 
-    const { count: totalPropostas } = await supabase
-      .from('apolices')
-      .select('*', { count: 'exact', head: true })
-      .eq('status_funil', 'Cotação Solicitada');
+export default function ListaClientes() {
+  const [clientes, setClientes] = useState([]);
+  const [carregando, setCarregando] = useState(true);
 
-    return { totalClientes: totalClientes || 0, totalPropostas: totalPropostas || 0 };
-  } catch (error) {
-    console.error("Erro nos contadores:", error);
-    return { totalClientes: 0, totalPropostas: 0 };
-  }
+  useEffect(() => {
+    listarClientesCompleto().then(res => {
+      setClientes(res);
+      setCarregando(false);
+    });
+  }, []);
+
+  if (carregando) return <div style={{ padding: '20px', textAlign: 'center' }}>Carregando listagem de clientes...</div>;
+
+  return (
+    <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0, color: '#333' }}>👤 Clientes Cadastrados</h1>
+        <a href="/" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 'bold' }}>← Voltar ao Painel</a>
+      </div>
+
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        {clientes.length === 0 ? (
+          <p style={{ color: '#888', textAlign: 'center' }}>Nenhum cliente localizado no banco de dados.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee', color: '#666' }}>
+                <th style={{ padding: '12px' }}>Nome</th>
+                <th style={{ padding: '12px' }}>CPF / CNPJ</th>
+                <th style={{ padding: '12px' }}>Contato</th>
+                <th style={{ padding: '12px' }}>Veículo Cadastrado</th>
+                <th style={{ padding: '12px' }}>Origem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientes.map((c) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
+                  <td style={{ padding: '12px', color: '#555' }}>{c.cpf_cnpj}</td>
+                  <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>
+                    📞 {c.telefone || 'Não informado'}<br />
+                    ✉️ {c.email || 'Não informado'}
+                  </td>
+                  <td style={{ padding: '12px', color: '#0070f3', fontWeight: '500' }}>
+                    🚗 {c.veiculos?.[0]?.marca_modelo || c.veiculos?.marca_modelo || 'Nenhum carro vinculado'}<br />
+                    <span style={{ fontSize: '12px', color: '#666' }}>Placa: {c.veiculos?.[0]?.placa || c.veiculos?.placa || '-'}</span>
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#e0f2fe', color: '#0369a1' }}>
+                      {c.origem_lead || 'Direto'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
 }
-
-// 2. LISTAR RENOVAÇÕES (Próximos 30 dias)
-async function buscarRenovacoesProximas() {
-  try {
-    const hoje = new Date().toISOString().split('T')[0];
-    const trintaDiasDepois = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const { data: renovacoes, error } = await supabase
-      .from('apolices')
-      .select('id, data_fim_vigencia, premio_total, clientes(nome), veiculos(marca_modelo, placa)')
-      .gte('data_fim_vigencia', hoje)
-      .lte('data_fim_vigencia', trintaDiasDepois)
-      .order('data_fim_vigencia', { ascending: true });
-
-    if (error) throw error;
-    return renovacoes || [];
-  } catch (error) {
-    console.error("Erro nas renovações:", error);
-    return [];
-  }
-}
-
-// 3. FINANCEIRO (Listar parcelas em aberto)
-async function buscarParcelasFinanceiro() {
-  try {
-    const { data: parcelas, error } = await supabase
-      .from('parcelas')
-      .select('id, numero_parcela, valor_parcela, data_vencimento, status_pagamento, apolices(clientes(nome))')
-      .in('status_pagamento', ['Pendente', 'Atrasado'])
-      .order('data_vencimento', { ascending: true });
-
-    if (error) throw error;
-    return parcelas || [];
-  } catch (error) {
-    console.error("Erro no financeiro:", error);
-    return [];
-  }
-}
-
-// 4. ANEXAR APÓLICE (Upload do PDF para o Storage)
-async function anexarApolice(arquivoPdf, apoliceId) {
-  try {
-    const arquivoReal = arquivoPdf.target?.files ? arquivoPdf.target.files[0] : (arquivoPdf[0] || arquivoPdf);
-    
-    if (!arquivoReal) return { success: false, message: "Nenhum arquivo PDF selecionado" };
-
-    const nomeArquivo = `${apoliceId}-${Date.now()}.pdf`;
-
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('apolices-arquivos')
-      .upload(`public/${nomeArquivo}`, arquivoReal);
-
-    if (uploadError) return { success: false, message: uploadError.message };
-
-    const { data: urlData } = supabase.storage
-      .from('apolices-arquivos')
-      .getPublicUrl(`public/${nomeArquivo}`);
-
-    const { error: updateError } = await supabase
-      .from('apolices')
-      .update({ url_pdf_apolice: urlData.publicUrl })
-      .eq('id', apoliceId);
-
-    return { success: !updateError, url: urlData?.publicUrl || '' };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
-}
-
-// 5. NOVA FUNÇÃO: BUSCAR LISTA DE CLIENTES DETALHADA
-async function listarClientesCompleto() {
-  try {
-    const { data: clientes, error } = await supabase
-      .from('clientes')
-      .select('id, nome, cpf_cnpj, telefone, email, origem_lead, veiculos(marca_modelo, placa)')
-      .order('nome', { ascending: true });
-
-    if (error) throw error;
-    return clientes || [];
-  } catch (error) {
-    console.error("Erro ao listar clientes:", error);
-    return [];
-  }
-}
-
-// Exportação explícita unificada contendo a nova função de listagem
-export {
-  buscarContadoresDashboard,
-  buscarRenovacoesProximas,
-  buscarParcelasFinanceiro,
-  anexarApolice,
-  listarClientesCompleto
-};
