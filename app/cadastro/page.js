@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { anexarApolice } from '../../lib/segurosService';
+import { supabase } from '../lib/supabaseClient';
+import { anexarApolice } from '../lib/segurosService';
 
 export default function CadastroSeguro() {
   // Estados do formulário
@@ -37,7 +37,7 @@ export default function CadastroSeguro() {
       // 1. Cadastra o Cliente
       const { data: cliente, error: errCliente } = await supabase
         .from('clientes')
-        .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email, origem_lead: origemLead }])
+        .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email, origen_lead: origemLead }])
         .select()
         .single();
 
@@ -72,7 +72,7 @@ export default function CadastroSeguro() {
       // 4. Se o usuário selecionou um arquivo PDF, faz o upload usando o serviço criado
       if (arquivo && apolice.id) {
         setStatusEnvio('Fazendo upload da apólice em PDF...');
-        const uploadResult = await anexarApolice(arquivo, apolice.id);
+        const uploadResult = await anexarApolice(arquivo[0], apolice.id);
         if (!uploadResult.success) {
           alert(`Dados salvos, mas o PDF falhou: ${uploadResult.message}`);
         }
@@ -141,7 +141,7 @@ export default function CadastroSeguro() {
 
         {/* CLIP DE ANEXO */}
         <h3 style={{ margin: '10px 0 5px 0', fontSize: '16px', color: '#0070f3' }}>📎 Anexar Proposta / Apólice (PDF)</h3>
-        <input type="file" accept="application/pdf" onChange={e => setArquivo(e.target.files[0])} style={inputStyle} />
+        <input type="file" accept="application/pdf" onChange={e => setArquivo(e.target.files)} style={inputStyle} />
 
         {/* STATUS E SUBMIT */}
         <button type="submit" style={{ background: '#0070f3', color: '#fff', border: 'none', padding: '12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' }}>
