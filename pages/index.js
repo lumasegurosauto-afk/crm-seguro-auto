@@ -39,17 +39,20 @@ export default function Dashboard() {
 
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0, color: '#333' }}>Painel de Controle - Luma Seguros Auto</h1>
         <a href="/cadastro" style={{ background: '#0070f3', color: '#fff', padding: '10px 15px', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold' }}>+ Novo Cadastro</a>
       </div>
 
-      {/* 📊 SEÇÃO 1: CONTADORES */}
+      {/* 📊 SEÇÃO 1: CONTADORES CLICÁVEIS */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
-        <div style={{ flex: 1, background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderLeft: '5px solid #0070f3' }}>
-          <h3 style={{ margin: 0, color: '#666' }}>Quantidade de Clientes</h3>
-          <p style={{ fontSize: '32px', fontWeight: 'bold', margin: '10px 0 0 0', color: '#0070f3' }}>{contadores.totalClientes}</p>
-        </div>
+        <a href="/clientes" style={{ flex: 1, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderLeft: '5px solid #0070f3', cursor: 'pointer' }}>
+            <h3 style={{ margin: 0, color: '#666' }}>Quantidade de Clientes 🔍</h3>
+            <p style={{ fontSize: '32px', fontWeight: 'bold', margin: '10px 0 0 0', color: '#0070f3' }}>{contadores.totalClientes}</p>
+            <span style={{ fontSize: '12px', color: '#0070f3' }}>Clique para abrir a listagem →</span>
+          </div>
+        </a>
         <div style={{ flex: 1, background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderLeft: '5px solid #ff9800' }}>
           <h3 style={{ margin: 0, color: '#666' }}>Propostas em Cotação</h3>
           <p style={{ fontSize: '32px', fontWeight: 'bold', margin: '10px 0 0 0', color: '#ff9800' }}>{contadores.totalPropostas}</p>

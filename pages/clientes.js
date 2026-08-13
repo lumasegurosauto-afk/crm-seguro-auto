@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { listarClientesCompleto } from '../lib/segurosService'; // Rota corrigida!
+import { listarClientesCompleto } from '../lib/segurosService';
 
 export default function ListaClientes() {
   const [clientes, setClientes] = useState([]);
@@ -38,25 +38,29 @@ export default function ListaClientes() {
               </tr>
             </thead>
             <tbody>
-              {clientes.map((c) => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
-                  <td style={{ padding: '12px', color: '#555' }}>{c.cpf_cnpj}</td>
-                  <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>
-                    📞 {c.telefone || 'Não informado'}<br />
-                    ✉️ {c.email || 'Não informado'}
-                  </td>
-                  <td style={{ padding: '12px', color: '#0070f3', fontWeight: '500' }}>
-                    🚗 {c.veiculos?.[0]?.marca_modelo || c.veiculos?.marca_modelo || 'Nenhum carro vinculado'}<br />
-                    <span style={{ fontSize: '12px', color: '#666' }}>Placa: {c.veiculos?.[0]?.placa || c.veiculos?.placa || '-'}</span>
-                  </td>
-                  <td style={{ padding: '12px' }}>
-                    <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#e0f2fe', color: '#0369a1' }}>
-                      {c.origem_lead || 'Direto'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {clientes.map((c) => {
+                // Tratativa segura para ler o array de veículos vindo do Supabase
+                const carro = Array.isArray(c.veiculos) ? c.veiculos[0] : c.veiculos;
+                return (
+                  <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
+                    <td style={{ padding: '12px', color: '#555' }}>{c.cpf_cnpj}</td>
+                    <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>
+                      📞 {c.telefone || 'Não informado'}<br />
+                      ✉️ {c.email || 'Não informado'}
+                    </td>
+                    <td style={{ padding: '12px', color: '#0070f3', fontWeight: '500' }}>
+                      🚗 {carro?.marca_modelo || 'Nenhum carro vinculado'}<br />
+                      <span style={{ fontSize: '12px', color: '#666' }}>Placa: {carro?.placa || '-'}</span>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#e0f2fe', color: '#0369a1' }}>
+                        {c.origem_lead || 'Direto'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
