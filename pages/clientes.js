@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { listarClientesCompleto, anexarApolice } from '../lib/segurosService';
+import { supabase } from '../lib/supabaseClient';
 
 export default function ListaClientes() {
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [statusUpload, setStatusUpload] = useState({});
 
-  // Função para carregar ou recarregar os dados da tela
   async function atualizarLista() {
     const res = await listarClientesCompleto();
     setClientes(res);
@@ -19,20 +19,36 @@ export default function ListaClientes() {
     atualizarLista();
   }, []);
 
-  // Função que gerencia o upload tardio da apólice
   async function handleUploadTardio(e, apoliceId, clienteId) {
     const arquivoSelecionado = e.target.files?.[0];
-    if (!arquivoSelecionado || !apoliceId) return;
+    if (!arquivoSelecionado) return;
 
-    // Define o status de carregando para esta linha específica
     setStatusUpload(prev => ({ ...prev, [clienteId]: 'Enviando...' }));
 
     try {
-      const resultado = await anexarApolice(arquivoSelecionado, apoliceId);
+      let idDaApolice = apoliceId;
+
+      // SEGURANÇA: Se o cliente não tiver uma apólice no funil, cria uma na hora para receber o PDF
+      if (!idDaApolice) {
+        const { data: novaApolice, error } = await supabase
+          .from('apolices')
+          .insert([{ 
+            cliente_id: clienteId, 
+            status_funil: 'Apólice Ativa', 
+            premio_total: 0, 
+            porcentagem_comissao: 0 
+          }])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        idDaApolice = novaApolice.id;
+      }
+
+      const resultado = await anexarApolice(arquivoSelecionado, idDaApolice);
       
       if (resultado.success) {
         setStatusUpload(prev => ({ ...prev, [clienteId]: '✅ Sucesso!' }));
-        // Recarrega a tabela para o botão azul aparecer na hora
         await atualizarLista();
       } else {
         alert(`Falha no upload: ${resultado.message}`);
@@ -71,7 +87,7 @@ export default function ListaClientes() {
             <tbody>
               {clientes.map((c) => {
                 const carro = c.veiculos;
-                // Busca a primeira apólice vinculada ao cliente
+                // Busca de forma segura a apólice
                 const apolice = Array.isArray(c.apolices) ? c.apolices[0] : c.apolices;
 
                 return (
@@ -92,7 +108,6 @@ export default function ListaClientes() {
                       </span>
                     </td>
                     <td style={{ padding: '12px' }}>
-                      {/* Se já tiver o PDF, mostra o botão azul tradicional */}
                       {apolice?.url_pdf_apolice ? (
                         <a 
                           href={apolice.url_pdf_apolice} 
@@ -102,14 +117,13 @@ export default function ListaClientes() {
                         >
                           📄 Ver PDF
                         </a>
-                      ) : apolice?.id ? (
-                        // Se não tiver o PDF mas tiver uma apólice/proposta criada, mostra o seletor de arquivo
+                      ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                           <label style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>📎 Anexar Apólice:</label>
                           <input 
                             type="file" 
                             accept="application/pdf" 
-                            onChange={(e) => handleUploadTardio(e, apolice.id, c.id)}
+                            onChange={(e) => handleUploadTardio(e, apolice?.id, c.id)}
                             style={{ fontSize: '12px', maxWidth: '180px' }}
                           />
                           {statusUpload[c.id] && (
@@ -118,8 +132,6 @@ export default function ListaClientes() {
                             </span>
                           )}
                         </div>
-                      ) : (
-                        <span style={{ color: '#999', fontSize: '12px' }}>Sem apólice no funil</span>
                       )}
                     </td>
                   </tr>
