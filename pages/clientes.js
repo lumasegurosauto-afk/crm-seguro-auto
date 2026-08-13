@@ -28,7 +28,7 @@ export default function ListaClientes() {
     try {
       let idDaApolice = apoliceId;
 
-      // SEGURANÇA: Se o cliente não tiver uma apólice no funil, cria uma na hora para receber o PDF
+      // SEGURANÇA MÁXIMA: Se o ID da apólice não existir ou vier indefinido, cria uma na hora!
       if (!idDaApolice) {
         const { data: novaApolice, error } = await supabase
           .from('apolices')
@@ -87,8 +87,16 @@ export default function ListaClientes() {
             <tbody>
               {clientes.map((c) => {
                 const carro = c.veiculos;
-                // Busca de forma segura a apólice
-                const apolice = Array.isArray(c.apolices) ? c.apolices[0] : c.apolices;
+                
+                // MAPEAMENTO SEGURO: Extrai a apólice tratando listas vazias de forma correta
+                let apolice = null;
+                if (c.apolices) {
+                  if (Array.isArray(c.apolices) && c.apolices.length > 0) {
+                    apolice = c.apolices[0];
+                  } else if (!Array.isArray(c.apolices)) {
+                    apolice = c.apolices;
+                  }
+                }
 
                 return (
                   <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
