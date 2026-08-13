@@ -1,179 +1,129 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { useEffect, useState } from 'react';
+import { 
+  buscarContadoresDashboard, 
+  buscarRenovacoesProximas, 
+  buscarParcelasFinanceiro 
+} from '../lib/segurosService';
 
-export default function DashboardCRM() {
-  const [clientes, setClientes] = useState([]);
-  const [metricas, setMetricas] = useState({ totalPremios: 0, totalComissao: 0, renovacoesTrintaDias: 0 });
+export default function Dashboard() {
+  const [contadores, setContadores] = useState({ totalClientes: 0, totalPropostas: 0 });
+  const [renovacoes, setRenovacoes] = useState([]);
+  const [parcelas, setParcelas] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  
-  const [nome, setNome] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [veiculo, setVeiculo] = useState('');
-  const [premio, setPremio] = useState('');
-  const [comissao, setComissao] = useState('');
-  const [dataVencimento, setDataVencimento] = useState('');
-
-  async function carregarDados() {
-    setCarregando(true);
-    try {
-      const { data, error } = await supabase
-        .from('apolices')
-        .select('*, clientes(nome, cpf_cnpj), veiculos(marca_modelo)');
-        
-      if (error) throw error;
-
-      if (data) {
-        let premios = 0;
-        let comissoes = 0;
-        let alertasVencimento = 0;
-        const hoje = new Date();
-
-        data.forEach(ap => {
-          premios += Number(ap.premio_total || 0);
-          comissoes += Number(ap.valor_comissao_receber || 0);
-          
-          const fimVigencia = new Date(ap.data_fim_vigencia);
-          const diferencaDias = Math.ceil((fimVigencia - hoje) / (1000 * 60 * 60 * 24));
-          if (diferencaDias >= 0 && diferencaDias <= 30) {
-            alertasVencimento++;
-          }
-        });
-
-        setMetricas({ totalPremios: premios, totalComissao: comissoes, renovacoesTrintaDias: alertasVencimento });
-        setClientes(data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCarregando(false);
-    }
-  }
 
   useEffect(() => {
-    if (supabaseUrl && supabaseAnonKey) {
-      carregarDados();
+    async function carregarDados() {
+      try {
+        const [resContadores, resRenovacoes, resParcelas] = await Promise.all([
+          buscarContadoresDashboard(),
+          buscarRenovacoesProximas(),
+          buscarParcelasFinanceiro()
+        ]);
+        
+        setContadores(resContadores);
+        setRenovacoes(resRenovacoes);
+        setParcelas(resParcelas);
+      } catch (error) {
+        console.error("Erro ao carregar dados do CRM:", error);
+      } finally {
+        setCarregando(false);
+      }
     }
+
+    carregarDados();
   }, []);
 
-  const handleSalvar = async (e) => {
-    e.preventDefault();
-    try {
-      const { data: novoCliente, error: errCliente } = await supabase
-        .from('clientes')
-        .insert([{ nome, cpf_cnpj: cpf }])
-        .select()
-        .single();
-        
-      if (errCliente) throw errCliente;
-
-      const { data: novoVeiculo, error: errVeiculo } = await supabase
-        .from('veiculos')
-        .insert([{ cliente_id: novoCliente.id, marca_modelo: veiculo }])
-        .select()
-        .single();
-
-      if (errVeiculo) throw errVeiculo;
-
-      const dataInicio = new Date().toISOString().split('T')[0];
-      const { error: errApolice } = await supabase
-        .from('apolices')
-        .insert([{
-          cliente_id: novoCliente.id,
-          veiculo_id: novoVeiculo.id,
-          premio_total: parseFloat(premio),
-          porcentagem_comissao: parseFloat(comissao),
-          data_inicio_vigencia: dataInicio,
-          data_fim_vigencia: dataVencimento
-        }]);
-
-      if (errApolice) throw errApolice;
-
-      alert('Cliente e Apólice salvos com sucesso no Banco de Dados!');
-      
-      setNome(''); setCpf(''); setVeiculo(''); setPremio(''); setComissao(''); setDataVencimento('');
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao salvar: ' + err.message);
-    }
-  };
+  if (carregando) return <div style={{ padding: '20px', textAlign: 'center' }}>Carregando dados do CRM...</div>;
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#F3F4F6', minHeight: '100vh' }}>
-      <header style={{ marginBottom: '30px' }}>
-        <h1 style={{ color: '#1F2937', margin: 0 }}>🚗 Meu CRM de Seguro Auto</h1>
-        <p style={{ color: '#6B7280', margin: '5px 0 0 0' }}>Painel Administrativo Conectado ao Banco de Dados</p>
-      </header>
+    <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
+      <h1 style={{ marginBottom: '20px', color: '#333' }}>Painel de Controle - Luma Seguros Auto</h1>
 
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flex: '1', minWidth: '200px' }}>
-          <h3 style={{ color: '#6B7280', margin: 0, fontSize: '14px' }}>💰 Minha Carteira (Total Prêmios)</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '10px 0 0 0' }}>R$ {metricas.totalPremios.toLocaleString('pt-BR')}</p>
+      {/* 📊 SEÇÃO 1: CONTADORES */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
+        <div style={{ flex: 1, background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderLeft: '5px solid #0070f3' }}>
+          <h3 style={{ margin: 0, color: '#666' }}>Quantidade de Clientes</h3>
+          <p style={{ fontSize: '32px', fontWeight: 'bold', margin: '10px 0 0 0', color: '#0070f3' }}>{contadores.totalClientes}</p>
         </div>
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flex: '1', minWidth: '200px' }}>
-          <h3 style={{ color: '#6B7280', margin: 0, fontSize: '14px' }}>📈 Minha Comissão Acumulada</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#10B981', margin: '10px 0 0 0' }}>R$ {metricas.totalComissao.toLocaleString('pt-BR')}</p>
-        </div>
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', flex: '1', minWidth: '200px' }}>
-          <h3 style={{ color: '#6B7280', margin: 0, fontSize: '14px' }}>⏰ Alertas de Renovação (30 dias)</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#EF4444', margin: '10px 0 0 0' }}>{metricas.renovacoesTrintaDias} Clientes</p>
+        <div style={{ flex: 1, background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', borderLeft: '5px solid #ff9800' }}>
+          <h3 style={{ margin: 0, color: '#666' }}>Propostas em Cotação</h3>
+          <p style={{ fontSize: '32px', fontWeight: 'bold', margin: '10px 0 0 0', color: '#ff9800' }}>{contadores.totalPropostas}</p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', flex: '1', minWidth: '320px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#374151' }}>📝 Cadastrar Nova Apólice</h2>
-          <form onSubmit={handleSalvar} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <input placeholder='Nome do Cliente' value={nome} onChange={e => setNome(e.target.value)} required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #D1D5DB' }} />
-            <input placeholder='CPF ou CNPJ' value={cpf} onChange={e => setCpf(e.target.value)} required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #D1D5DB' }} />
-            <input placeholder='Veículo (Marca/Modelo/Ano)' value={veiculo} onChange={e => setVeiculo(e.target.value)} required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #D1D5DB' }} />
-            <input placeholder='Prêmio Total (R$)' type='number' value={premio} onChange={e => setPremio(e.target.value)} required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #D1D5DB' }} />
-            <input placeholder='Comissão (%)' type='number' value={comissao} onChange={e => setComissao(e.target.value)} required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #D1D5DB' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '12px', color: '#6B7280' }}>Data Final de Vigência (Vencimento):</label>
-              <input type='date' value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} required style={{ padding: '10px', borderRadius: '5px', border: '1px solid #D1D5DB' }} />
-            </div>
-            <button type='submit' style={{ background: '#10B981', color: 'white', border: 'none', padding: '12px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar no Supabase</button>
-          </form>
-        </div>
+      {/* ⏳ SEÇÃO 2: RENOVAÇÕES DOS PRÓXIMOS 30 DIAS */}
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
+        <h2 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '20px' }}>⏳ Alertas de Renovações (Próximos 30 Dias)</h2>
+        {renovacoes.length === 0 ? (
+          <p style={{ color: '#888' }}>Nenhuma apólice vencendo nos próximos 30 dias.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee' }}>
+                <th style={{ padding: '10px' }}>Cliente</th>
+                <th style={{ padding: '10px' }}>Veículo / Placa</th>
+                <th style={{ padding: '10px' }}>Vencimento</th>
+                <th style={{ padding: '10px' }}>Prêmio Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {renovacoes.map((item) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid #eee', background: '#fff9e6' }}>
+                  <td style={{ padding: '10px' }}>{item.clientes?.nome}</td>
+                  <td style={{ padding: '10px' }}>{item.veiculos?.marca_modelo} ({item.veiculos?.placa})</td>
+                  <td style={{ padding: '10px', color: '#d32f2f', fontWeight: 'bold' }}>
+                    {new Date(item.data_fim_vigencia).toLocaleDateString('pt-BR')}
+                  </td>
+                  <td style={{ padding: '10px' }}>R$ {Number(item.premio_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', flex: '2', minWidth: '320px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#374151' }}>📋 Clientes Cadastrados na Carteira</h2>
-          {carregando ? (
-            <p>Carregando dados do banco...</p>
-          ) : clientes.length === 0 ? (
-            <p style={{ color: '#9CA3AF' }}>Sua carteira está vazia. Digite os dados ao lado e clique em salvar para começar!</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {clientes.map((item, idx) => {
-                const hoje = new Date();
-                const fim = new Date(item.data_fim_vigencia);
-                const diasRestantes = Math.ceil((fim - hoje) / (1000 * 60 * 60 * 24));
-                const corAlerta = diasRestantes <= 30 ? '#EF4444' : '#10B981';
-
-                return (
-                  <div key={idx} style={{ padding: '15px', borderRadius: '8px', borderLeft: '6px solid ' + corAlerta, backgroundColor: '#F9FAFB', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <h4 style={{ margin: 0, color: '#1F2937' }}>{item.clientes?.nome}</h4>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6B7280' }}>{item.veiculos?.marca_modelo} | CPF: {item.clientes?.cpf_cnpj}</p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', color: '#111827' }}>Prêmio: R$ {Number(item.premio_total).toLocaleString('pt-BR')}</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#10B981', fontWeight: 'bold' }}>Comissão: R$ {Number(item.valor_comissao_receber).toLocaleString('pt-BR')}</p>
-                      <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: corAlerta, fontWeight: 'bold' }}>
-                        {diasRestantes < 0 ? '❌ Vencido!' : `⏰ Vence em ${diasRestantes} dias`}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* 💳 SEÇÃO 3: PARCELAS FINANCEIRAS PENDENTES */}
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <h2 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '20px' }}>💳 Controle Financeiro (Parcelas em Aberto)</h2>
+        {parcelas.length === 0 ? (
+          <p style={{ color: '#888' }}>Nenhuma parcela pendente ou em atraso.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee' }}>
+                <th style={{ padding: '10px' }}>Cliente</th>
+                <th style={{ padding: '10px' }}>Nº Parcela</th>
+                <th style={{ padding: '10px' }}>Valor</th>
+                <th style={{ padding: '10px' }}>Vencimento</th>
+                <th style={{ padding: '10px' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parcelas.map((p) => (
+                <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '10px' }}>{p.apolices?.clientes?.nome}</td>
+                  <td style={{ padding: '10px' }}>{p.numero_parcela}ª Parcela</td>
+                  <td style={{ padding: '10px' }}>R$ {Number(p.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style={{ padding: '10px' }}>{new Date(p.data_vencimento).toLocaleDateString('pt-BR')}</td>
+                  <td style={{ padding: '10px' }}>
+                    <span style={{ 
+                      padding: '4px 8px', 
+                      borderRadius: '4px', 
+                      fontSize: '12px', 
+                      fontWeight: 'bold',
+                      background: p.status_pagamento === 'Atrasado' ? '#ffebee' : '#fff3e0',
+                      color: p.status_pagamento === 'Atrasado' ? '#c62828' : '#ef6c00'
+                    }}>
+                      {p.status_pagamento}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
