@@ -35,12 +35,15 @@ export default function ListaClientes() {
                 <th style={{ padding: '12px' }}>Contato</th>
                 <th style={{ padding: '12px' }}>Veículo Cadastrado</th>
                 <th style={{ padding: '12px' }}>Origem</th>
+                <th style={{ padding: '12px' }}>Apólice</th> {/* Nova Coluna */}
               </tr>
             </thead>
             <tbody>
               {clientes.map((c) => {
-                // Tratativa segura para ler o array de veículos vindo do Supabase
                 const carro = Array.isArray(c.veiculos) ? c.veiculos[0] : c.veiculos;
+                // Busca a primeira apólice vinculada se ela existir
+                const apolice = Array.isArray(c.apolices) ? c.apolices[0] : c.apolices;
+
                 return (
                   <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
@@ -57,6 +60,21 @@ export default function ListaClientes() {
                       <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#e0f2fe', color: '#0369a1' }}>
                         {c.origem_lead || 'Direto'}
                       </span>
+                    </td>
+                    {/* COLUNA DO BOTÃO DE ARQUIVO ANEXADO */}
+                    <td style={{ padding: '12px' }}>
+                      {apolice?.url_pdf_apolice ? (
+                        <a 
+                          href={apolice.url_pdf_apolice} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={{ background: '#0070f3', color: '#fff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }}
+                        >
+                          📄 Ver PDF
+                        </a>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '12px' }}>Sem anexo</span>
+                      )}
                     </td>
                   </tr>
                 );
