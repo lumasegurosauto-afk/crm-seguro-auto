@@ -5,7 +5,7 @@ import { listarClientesCompleto, anexarApolice } from '../lib/segurosService';
 import { supabase } from '../lib/supabaseClient';
 
 export default function ListaClientes() {
-  const [clientes, setClientes] = useState(null); // Iniciando como null para a usabilidade de carregamento
+  const [clientes, setClientes] = useState(null); // Evita o piscar de tela vazia
   const [carregando, setCarregando] = useState(true);
   const [statusUpload, setStatusUpload] = useState({});
 
@@ -74,7 +74,6 @@ export default function ListaClientes() {
 
       <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         
-        {/* Usabilidade Avançada: Evita o piscar de tela vazia */}
         {carregando || clientes === null ? (
           <p style={{ color: '#0070f3', textAlign: 'center', fontWeight: 'bold' }}>🔄 Carregando listagem de clientes...</p>
         ) : clientes.length === 0 ? (
