@@ -25,10 +25,10 @@ export default function Cadastro() {
     setCarregando(true)
 
     try {
-      // 1. Cadastra o Cliente no Supabase
+      // 1. Cadastra o Cliente no Supabase (Sintaxe Corrigida Aqui)
       const { data: cliente, error: errCliente } = await supabase
         .from('clientes')
-        .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email ]})
+        .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email }])
         .select()
         .single()
 
