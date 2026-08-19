@@ -10,23 +10,39 @@ export default function Clientes() {
   }, [])
 
   async function carregarClientesEParcelas() {
-    // CORREÇÃO: Busca os clientes trazendo os dados internos da apólice vinculada
     const { data: dadosClientes } = await supabase
       .from('clientes')
       .select('*, apolices(*)')
     setClientes(dadosClientes || [])
 
-    // Busca o controle financeiro de parcelas
     const { data: dadosParcelas } = await supabase
       .from('parcelas')
       .select('*, apolices(numero_apolice, clientes(nome))')
     setFinanceiro(dadosParcelas || [])
   }
 
+  // NOVA FUNÇÃO: Deletar Cliente e atualizar a tela
+  async function excluirCliente(clienteId, nomeCliente) {
+    const confirmar = window.confirm(`⚠️ Tem certeza que deseja apagar o cliente "${nomeCliente}"? Isso excluirá permanentemente todas as suas apólices e parcelas.`);
+    
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from('clientes')
+      .delete()
+      .eq('id', clienteId)
+
+    if (error) {
+      alert('Erro ao excluir cliente: ' + error.message)
+    } else {
+      alert('Cliente removido com sucesso!')
+      carregarClientesEParcelas() // Recarrega a lista sem o cliente apagado
+    }
+  }
+
   async function handleUploadApolice(file, clienteId, apoliceId) {
     if (!file) return
     
-    // 1. Envia o PDF para o Bucket do Storage
     const fileName = `public/${clienteId}_${Date.now()}.pdf`
     const { data, error } = await supabase.storage
       .from('apolices-arquivos')
@@ -37,14 +53,12 @@ export default function Clientes() {
       return
     }
 
-    // CORREÇÃO: Captura a URL pública no formato correto exigido pelo Supabase v2
     const { data: urlData } = supabase.storage
       .from('apolices-arquivos')
       .getPublicUrl(fileName)
 
     const urlPublica = urlData.publicUrl
 
-    // 2. Atualiza e SALVA a URL do PDF direto na apólice do banco de dados
     const { error: errorUpdate } = await supabase
       .from('apolices')
       .update({ pdf_url: urlPublica })
@@ -69,8 +83,31 @@ export default function Clientes() {
       
       <div style={{ display: 'grid', gap: '15px' }}>
         {clientes.map(cliente => (
-          <div key={cliente.id} style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', background: '#fff' }}>
-            <h3 style={{ margin: '0 0 10px 0' }}>{cliente.nome} <span style={{ fontSize: '13px', color: '#64748b' }}>({cliente.cpf_cnpj})</span></h3>
+          <div key={cliente.id} style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px', background: '#fff', position: 'relative' }}>
+            
+            {/* BOTÃO EXCLUIR CLIENTE */}
+            <button 
+              onClick={() => excluirCliente(cliente.id, cliente.nome)}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '12px'
+              }}
+            >
+              🗑️ Apagar Cliente
+            </button>
+
+            <h3 style={{ margin: '0 0 10px 0', paddingRight: '120px' }}>
+              {cliente.nome} <span style={{ fontSize: '13px', color: '#64748b' }}>({cliente.cpf_cnpj})</span>
+            </h3>
             <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>📞 Tel: {cliente.telefone} | ✉️ E-mail: {cliente.email}</p>
             
             {cliente.apolices && cliente.apolices.length > 0 ? (
@@ -85,7 +122,7 @@ export default function Clientes() {
                   ) : (
                     <div>
                       <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px', color: '#475569' }}>Anexar PDF da Apólice:</label>
-                      <input type="file" accept="application/pdf" onChange={(e) => handleUploadApolice(e.target.files[0], cliente.id, apolice.id)} />
+                      <input type="file" accept="application/pdf" onChange={(e) => handleUploadApolice(e.target.files, cliente.id, apolice.id)} />
                     </div>
                   )}
                 </div>
