@@ -1,147 +1,153 @@
-'use client';
+import { useState } from 'react'
+import { supabase } from '../lib/supabaseClient'
 
-import { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import * as segurosService from '../lib/segurosService'; // Importação corrigida!
+export default function Cadastro() {
+  // Dados do Cliente
+  const [nome, setNome] = useState('')
+  const [cpfCnpj, setCpfCnpj] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [email, setEmail] = useState('')
 
-export default function CadastroSeguro() {
-  const [nome, setNome] = useState('');
-  const [cpfCnpj, setCpfCnpj] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [email, setEmail] = useState('');
-  const [origemLead, setOrigemLead] = useState('Instagram');
+  // Dados do Veículo e Seguro (Proposta/Cálculo)
+  const [veiculo, setVeiculo] = useState('')
+  const [placa, setPlaca] = useState('')
+  const [seguradora, setSeguradora] = useState('')
+  const [numeroApolice, setNumeroApolice] = useState('')
+  const [valorTotal, setValorTotal] = useState('')
+  const [qtdParcelas, setQtdParcelas] = useState('1')
+  const [vigenciaInicio, setVigenciaInicio] = useState('')
+  const [vigenciaFim, setVigenciaFim] = useState('')
 
-  const [marcaModelo, setMarcaModelo] = useState('');
-  const [anoModelo, setAnoModelo] = useState('');
-  const [placa, setPlaca] = useState('');
-  const [chassi, setChassi] = useState('');
+  const [carregando, setCarregando] = useState(false)
 
-  const [statusFunil, setStatusFunil] = useState('Cotação Solicitada');
-  const [premioTotal, setPremioTotal] = useState('');
-  const [porcentagemComissao, setPorcentagemComissao] = useState('');
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
-  const [arquivo, setArquivo] = useState(null);
-
-  const [statusEnvio, setStatusEnvio] = useState('');
-
-  const comissaoEstimada = (Number(premioTotal) * (Number(porcentagemComissao) / 100)) || 0;
-
-  async function handleSalvar(e) {
-    e.preventDefault();
-    setStatusEnvio('Salvando dados...');
+  async function handleSalvarSeguro(e) {
+    e.preventDefault()
+    setCarregando(true)
 
     try {
-      // 1. Cadastra o Cliente
+      // 1. Cadastra o Cliente no Supabase
       const { data: cliente, error: errCliente } = await supabase
         .from('clientes')
-        .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email, origem_lead: origemLead }])
-        .select().single();
+        .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email ]})
+        .select()
+        .single()
 
-      if (errCliente) throw new Error(`Erro Cliente: ${errCliente.message}`);
+      if (errCliente) throw new Error('Erro ao cadastrar cliente: ' + errCliente.message)
 
-      // 2. Cadastra o Veículo
-      const { data: veiculo, error: errVeiculo } = await supabase
-        .from('veiculos')
-        .insert([{ cliente_id: cliente.id, marca_modelo: marcaModelo, ano_modelo: Number(anoModelo), placa, chassi }])
-        .select().single();
+      // 2. Cadastra a Proposta / Cálculo vinculada ao cliente
+      const { data: proposta, error: errProposta } = await supabase
+        .from('propostas')
+        .insert([{ 
+          cliente_id: cliente.id, 
+          veiculo_modelo: veiculo, 
+          veiculo_placa: placa, 
+          valor_calculado: parseFloat(valorTotal),
+          status: 'Aprovada'
+        }])
+        .select()
+        .single()
 
-      if (errVeiculo) throw new Error(`Erro Veículo: ${errVeiculo.message}`);
+      if (errProposta) throw new Error('Erro ao salvar proposta: ' + errProposta.message)
 
-      // 3. Cadastra a Apólice
+      // 3. Cadastra a Apólice (Vigência)
       const { data: apolice, error: errApolice } = await supabase
         .from('apolices')
         .insert([{
           cliente_id: cliente.id,
-          veiculo_id: veiculo.id,
-          status_funil: statusFunil,
-          premio_total: Number(premioTotal),
-          porcentagem_comissao: Number(porcentagemComissao),
-          data_inicio_vigencia: dataInicio || null,
-          data_fim_vigencia: dataFim || null
-        }]).select().single();
+          proposta_id: proposta.id,
+          numero_apolice: numeroApolice,
+          seguradora: seguradora,
+          inicio_vigencia: vigenciaInicio,
+          fim_vigencia: vigenciaFim
+        }])
+        .select()
+        .single()
 
-      if (errApolice) throw new Error(`Erro Apólice: ${errApolice.message}`);
+      if (errApolice) throw new Error('Erro ao emitir apólice: ' + errApolice.message)
 
-      // 4. Faz o upload do PDF chamando o serviço de forma correta
-      if (arquivo && arquivo[0] && apolice.id) {
-        setStatusEnvio('Fazendo upload da apólice em PDF...');
-        const uploadResult = await segurosService.anexarApolice(arquivo[0], apolice.id);
-        if (!uploadResult.success) {
-          alert(`Dados salvos, mas o PDF falhou: ${uploadResult.message}`);
-        }
+      // 4. Calcula e Gera as Parcelas Automaticamente no Financeiro
+      const numeroDeParcelas = parseInt(qtdParcelas)
+      const valorDaParcela = parseFloat(valorTotal) / numeroDeParcelas
+      const listaParcelas = []
+
+      for (let i = 1; i <= numeroDeParcelas; i++) {
+        // Calcula a data de vencimento (uma parcela a cada 30 dias)
+        const dataVencimento = new Date()
+        dataVencimento.setDate(dataVencimento.getDate() + (i * 30))
+
+        listaParcelas.push({
+          apolice_id: apolice.id,
+          numero_parcela: i,
+          valor: valorDaParcela,
+          data_vencimento: dataVencimento.toISOString().split('T')[0],
+          status_pagamento: 'Pendente'
+        })
       }
 
-      setStatusEnvio('✅ Tudo cadastrado e salvo com sucesso!');
-      setNome(''); setCpfCnpj(''); setMarcaModelo(''); setPlaca(''); setPremioTotal(''); setPorcentagemComissao(''); setArquivo(null);
+      const { error: errParcelas } = await supabase.from('parcelas').insert(listaParcelas)
+      if (errParcelas) throw new Error('Erro ao gerar parcelas: ' + errParcelas.message)
+
+      alert('🎉 Segurado, proposta, apólice e parcelas cadastrados com sucesso!')
+      
+      // Limpa o formulário
+      setNome(''); setCpfCnpj(''); setTelefone(''); setEmail('');
+      setVeiculo(''); setPlaca(''); setSeguradora(''); setNumeroApolice('');
+      setValorTotal(''); setQtdParcelas('1'); setVigenciaInicio(''); setVigenciaFim('')
+
     } catch (error) {
-      console.error(error);
-      setStatusEnvio(`❌ Erro: ${error.message}`);
+      alert(error.message)
+    } finally {
+      setCarregando(false)
     }
   }
 
   return (
-    <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', maxWidth: '700px', margin: '0 auto', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      <div style={{ display: 'flex', marginBottom: '20px' }}>
-        <a href="/" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 'bold' }}>← Voltar ao Painel</a>
-      </div>
-      <h2 style={{ borderBottom: '2px solid #0070f3', paddingBottom: '10px', color: '#333' }}>Novo Cadastro de Seguro Auto</h2>
+    <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+      <h1 style={{ color: '#1e293b', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>📝 Novo Cadastro de Seguro Auto</h1>
       
-      <form onSubmit={handleSalvar} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-        <h3 style={{ margin: '10px 0 5px 0', fontSize: '16px', color: '#0070f3' }}>👤 Dados do Cliente</h3>
-        <input type="text" placeholder="Nome Completo" value={nome} onChange={e => setNome(e.target.value)} required style={inputStyle} />
-        <input type="text" placeholder="CPF ou CNPJ" value={cpfCnpj} onChange={e => setCpfCnpj(e.target.value)} required style={inputStyle} />
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input type="text" placeholder="Telefone" value={telefone} onChange={e => setTelefone(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-          <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-        </div>
-        <select value={origemLead} onChange={e => setOrigemLead(e.target.value)} style={inputStyle}>
-          <option value="Instagram">Instagram</option>
-          <option value="Indicação">Indicação</option>
-          <option value="Google">Google</option>
-        </select>
+      <form onSubmit={handleSalvarSeguro} style={{ display: 'grid', gap: '20px', marginTop: '20px' }}>
+        
+        {/* SEÇÃO DO CLIENTE */}
+        <fieldset style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '15px' }}>
+          <legend style={{ fontWeight: 'bold', color: '#3b82f6', padding: '0 5px' }}>Dados do Cliente</legend>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <label>Nome Completo: <input type="text" required value={nome} onChange={e => setNome(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>CPF ou CNPJ: <input type="text" required value={cpfCnpj} onChange={e => setCpfCnpj(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Telefone/WhatsApp: <input type="text" value={telefone} onChange={e => setTelefone(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>E-mail: <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+          </div>
+        </fieldset>
 
-        <h3 style={{ margin: '10px 0 5px 0', fontSize: '16px', color: '#0070f3' }}>🚗 Dados do Veículo</h3>
-        <input type="text" placeholder="Marca / Modelo" value={marcaModelo} onChange={e => setMarcaModelo(e.target.value)} required style={inputStyle} />
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input type="number" placeholder="Ano Modelo" value={anoModelo} onChange={e => setAnoModelo(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-          <input type="text" placeholder="Placa" value={placa} onChange={e => setPlaca(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
-        </div>
-        <input type="text" placeholder="Chassi" value={chassi} onChange={e => setChassi(e.target.value)} style={inputStyle} />
+        {/* SEÇÃO DO VEÍCULO E CÁLCULO */}
+        <fieldset style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '15px' }}>
+          <legend style={{ fontWeight: 'bold', color: '#3b82f6', padding: '0 5px' }}>Dados do Veículo e Valores</legend>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <label>Modelo do Carro: <input type="text" required value={veiculo} onChange={e => setVeiculo(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Placa: <input type="text" value={placa} onChange={e => setPlaca(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Prêmio Total (R$): <input type="number" step="0.01" required value={valorTotal} onChange={e => setValorTotal(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Quantidade de Parcelas: 
+              <select value={qtdParcelas} onChange={e => setQtdParcelas(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
+                {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{i+1}x</option>)}
+              </select>
+            </label>
+          </div>
+        </fieldset>
 
-        <h3 style={{ margin: '10px 0 5px 0', fontSize: '16px', color: '#0070f3' }}>💰 Valores e Contrato</h3>
-        <select value={statusFunil} onChange={e => setStatusFunil(e.target.value)} style={inputStyle}>
-          <option value="Cotação Solicitada">Cotação Solicitada</option>
-          <option value="Proposta Emitida">Proposta Emitida</option>
-          <option value="Apólice Ativa">Apólice Ativa</option>
-        </select>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input type="number" step="0.01" placeholder="Prêmio Total (R$)" value={premioTotal} onChange={e => setPremioTotal(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
-          <input type="number" step="0.01" placeholder="Comissão (%)" value={porcentagemComissao} onChange={e => setPorcentagemComissao(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
-        </div>
-        <div style={{ background: '#f0f7ff', padding: '10px', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', color: '#0056b3' }}>
-          💵 Comissão Estimada: R$ {comissaoEstimada.toFixed(2)}
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <label style={{ flex: 1, fontSize: '12px', color: '#666' }}>Início Vigência
-            <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inputStyle} />
-          </label>
-          <label style={{ flex: 1, fontSize: '12px', color: '#666' }}>Fim Vigência (Renovação)
-            <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} style={inputStyle} />
-          </label>
-        </div>
+        {/* SEÇÃO DA APÓLICE */}
+        <fieldset style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '15px' }}>
+          <legend style={{ fontWeight: 'bold', color: '#3b82f6', padding: '0 5px' }}>Emissão de Apólice (Vigência)</legend>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <label>Companhia Seguradora: <input type="text" required value={seguradora} onChange={e => setSeguradora(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Número da Apólice: <input type="text" required value={numeroApolice} onChange={e => setNumeroApolice(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Início da Vigência: <input type="date" required value={vigenciaInicio} onChange={e => setVigenciaInicio(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label>Fim da Vigência (Renovação): <input type="date" required value={vigenciaFim} onChange={e => setVigenciaFim(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+          </div>
+        </fieldset>
 
-        <h3 style={{ margin: '10px 0 5px 0', fontSize: '16px', color: '#0070f3' }}>📎 Anexar Proposta / Apólice (PDF)</h3>
-        <input type="file" accept="application/pdf" onChange={e => setArquivo(e.target.files)} style={inputStyle} />
-
-        <button type="submit" style={{ background: '#0070f3', color: '#fff', border: 'none', padding: '12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' }}>
-          Salvar Cadastro Completo
+        <button type="submit" disabled={carregando} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '15px', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
+          {carregando ? 'Salvando dados...' : '💾 Salvar e Gerar Contrato'}
         </button>
-
-        {statusEnvio && <div style={{ textAlign: 'center', marginTop: '10px', fontWeight: 'bold' }}>{statusEnvio}</div>}
       </form>
     </div>
-  );
+  )
 }
-
-const inputStyle = { padding: '10px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '14px', width: '100%', boxSizing: 'border-box' };
