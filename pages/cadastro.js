@@ -14,6 +14,7 @@ export default function Cadastro() {
   const [seguradora, setSeguradora] = useState('')
   const [numeroApolice, setNumeroApolice] = useState('')
   const [valorTotal, setValorTotal] = useState('')
+  const [comissaoValor, setComissaoValor] = useState('') // Estado para a comissão
   const [qtdParcelas, setQtdParcelas] = useState('1')
   const [vigenciaInicio, setVigenciaInicio] = useState('')
   const [vigenciaFim, setVigenciaFim] = useState('')
@@ -25,7 +26,7 @@ export default function Cadastro() {
     setCarregando(true)
 
     try {
-      // 1. Cadastra o Cliente no Supabase (Sintaxe Corrigida Aqui)
+      // 1. Cadastra o Cliente no Supabase
       const { data: cliente, error: errCliente } = await supabase
         .from('clientes')
         .insert([{ nome, cpf_cnpj: cpfCnpj, telefone, email }])
@@ -34,7 +35,7 @@ export default function Cadastro() {
 
       if (errCliente) throw new Error('Erro ao cadastrar cliente: ' + errCliente.message)
 
-      // 2. Cadastra a Proposta / Cálculo vinculada ao cliente
+      // 2. Cadastra a Proposta / Cálculo vinculada ao cliente inserindo a comissão
       const { data: proposta, error: errProposta } = await supabase
         .from('propostas')
         .insert([{ 
@@ -42,6 +43,7 @@ export default function Cadastro() {
           veiculo_modelo: veiculo, 
           veiculo_placa: placa, 
           valor_calculado: parseFloat(valorTotal),
+          comissao_valor: parseFloat(comissaoValor || 0), // Salva o valor da comissão no banco
           status: 'Aprovada'
         }])
         .select()
@@ -71,7 +73,6 @@ export default function Cadastro() {
       const listaParcelas = []
 
       for (let i = 1; i <= numeroDeParcelas; i++) {
-        // Calcula a data de vencimento (uma parcela a cada 30 dias)
         const dataVencimento = new Date()
         dataVencimento.setDate(dataVencimento.getDate() + (i * 30))
 
@@ -89,10 +90,10 @@ export default function Cadastro() {
 
       alert('🎉 Segurado, proposta, apólice e parcelas cadastrados com sucesso!')
       
-      // Limpa o formulário
+      // Limpa todo o formulário
       setNome(''); setCpfCnpj(''); setTelefone(''); setEmail('');
       setVeiculo(''); setPlaca(''); setSeguradora(''); setNumeroApolice('');
-      setValorTotal(''); setQtdParcelas('1'); setVigenciaInicio(''); setVigenciaFim('')
+      setValorTotal(''); setComissaoValor(''); setQtdParcelas('1'); setVigenciaInicio(''); setVigenciaFim('')
 
     } catch (error) {
       alert(error.message)
@@ -125,7 +126,8 @@ export default function Cadastro() {
             <label>Modelo do Carro: <input type="text" required value={veiculo} onChange={e => setVeiculo(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
             <label>Placa: <input type="text" value={placa} onChange={e => setPlaca(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
             <label>Prêmio Total (R$): <input type="number" step="0.01" required value={valorTotal} onChange={e => setValorTotal(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
-            <label>Quantidade de Parcelas: 
+            <label>Valor da Comissão (R$): <input type="number" step="0.01" required value={comissaoValor} onChange={e => setComissaoValor(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }} /></label>
+            <label style={{ gridColumn: 'span 2' }}>Quantidade de Parcelas: 
               <select value={qtdParcelas} onChange={e => setQtdParcelas(e.target.value)} style={{ width: '100%', padding: '8px', marginTop: '5px' }}>
                 {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{i+1}x</option>)}
               </select>
