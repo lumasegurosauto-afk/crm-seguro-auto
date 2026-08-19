@@ -1,159 +1,117 @@
-'use client';
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabaseClient'
 
-import { useEffect, useState } from 'react';
-import { listarClientesCompleto, anexarApolice } from '../lib/segurosService';
-import { supabase } from '../lib/supabaseClient';
-
-export default function ListaClientes() {
-  const [clientes, setClientes] = useState(null); // Evita o piscar de tela vazia
-  const [carregando, setCarregando] = useState(true);
-  const [statusUpload, setStatusUpload] = useState({});
-
-  async function atualizarLista() {
-    try {
-      const res = await listarClientesCompleto();
-      setClientes(res || []);
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      setClientes([]);
-    } finally {
-      setCarregando(false);
-    }
-  }
+export default function Clientes() {
+  const [clientes, setClientes] = useState([])
+  const [financeiro, setFinanceiro] = useState([])
 
   useEffect(() => {
-    atualizarLista();
-  }, []);
+    carregarClientesEParcelas()
+  }, [])
 
-  async function handleUploadTardio(e, apoliceId, clienteId) {
-    const arquivos = e.target.files;
-    if (!arquivos || arquivos.length === 0) return;
+  async function carregarClientesEParcelas() {
+    // Busca clientes e suas apólices vinculadas
+    const { data: dadosClientes } = await supabase.from('clientes').select('*, apolices(*)')
+    setClientes(dadosClientes || [])
 
-    setStatusUpload(prev => ({ ...prev, [clienteId]: 'Enviando...' }));
+    // Busca todas as parcelas do financeiro
+    const { data: dadosParcelas } = await supabase.from('parcelas').select('*, apolices(numero_apolice, clientes(nome))')
+    setFinanceiro(dadosParcelas || [])
+  }
 
-    try {
-      let idDaApolice = apoliceId;
+  // Função para fazer Upload do PDF da Apólice
+  async function handleUploadApolice(file, clienteId, apoliceId) {
+    if (!file) return
+    
+    // 1. Sobe o arquivo para a pasta 'apolices-arquivos' do Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('apolices-arquivos')
+      .upload(`public/${clienteId}_${Date.now()}.pdf`, file)
 
-      if (!idDaApolice) {
-        const { data: novaApolice, error } = await supabase
-          .from('apolices')
-          .insert([{ 
-            cliente_id: clienteId, 
-            status_funil: 'Apólice Ativa', 
-            premio_total: 0, 
-            porcentagem_comissao: 0 
-          }])
-          .select()
-          .single();
-        
-        if (error) throw error;
-        idDaApolice = novaApolice.id;
-      }
-
-      const resultado = await anexarApolice(arquivos, idDaApolice);
-      
-      if (resultado.success) {
-        setStatusUpload(prev => ({ ...prev, [clienteId]: '✅ Sucesso!' }));
-        await atualizarLista();
-      } else {
-        alert(`Falha no upload: ${resultado.message}`);
-        setStatusUpload(prev => ({ ...prev, [clienteId]: '' }));
-      }
-    } catch (error) {
-      alert(`Erro no sistema: ${error.message}`);
-      setStatusUpload(prev => ({ ...prev, [clienteId]: '' }));
+    if (error) {
+      alert('Erro no upload: ' + error.message)
+      return
     }
+
+    // 2. Captura a URL pública gerada para o arquivo
+    const { data: urlData } = supabase.storage.from('apolices-arquivos').getPublicUrl(data.path)
+
+    // 3. Atualiza a tabela de apólices inserindo o link do PDF
+    await supabase.from('apolices').update({ pdf_url: urlData.publicUrl }).eq('id', apoliceId)
+    
+    alert('Apólice anexada com sucesso!')
+    carregarClientesEParcelas()
+  }
+
+  // Função para dar baixa na parcela do seguro
+  async function pagarParcela(parcelaId) {
+    await supabase.from('parcelas').update({ status_pagamento: 'Pago' }).eq('id', parcelaId)
+    carregarClientesEParcelas()
   }
 
   return (
-    <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0, color: '#333' }}>👤 Clientes Cadastrados</h1>
-        <a href="/" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 'bold' }}>← Voltar ao Painel</a>
-      </div>
-
-      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        
-        {carregando || clientes === null ? (
-          <p style={{ color: '#0070f3', textAlign: 'center', fontWeight: 'bold' }}>🔄 Carregando listagem de clientes...</p>
-        ) : clientes.length === 0 ? (
-          <p style={{ color: '#888', textAlign: 'center' }}>Nenhum cliente localizado no banco de dados.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee', color: '#666' }}>
-                <th style={{ padding: '12px' }}>Nome</th>
-                <th style={{ padding: '12px' }}>CPF / CNPJ</th>
-                <th style={{ padding: '12px' }}>Contato</th>
-                <th style={{ padding: '12px' }}>Veículo</th>
-                <th style={{ padding: '12px' }}>Origem</th>
-                <th style={{ padding: '12px' }}>Apólice / Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.map((c) => {
-                const carro = Array.isArray(c.veiculos) ? c.veiculos[0] : c.veiculos;
+    <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>👥 Carteira de Clientes e Apólices</h1>
+      
+      {/* Lista de Clientes e Upload */}
+      <div style={{ display: 'grid', gap: '15px' }}>
+        {clientes.map(cliente => (
+          <div key={cliente.id} style={{ border: '1px solid #cbd5e1', padding: '15px', borderRadius: '8px' }}>
+            <h3>{cliente.nome} <span style={{ fontSize: '12px', color: '#64748b' }}>({cliente.cpf_cnpj})</span></h3>
+            
+            {cliente.apolices?.map(apolice => (
+              <div key={apolice.id} style={{ background: '#f8fafc', padding: '10px', marginTop: '5px', borderRadius: '6px' }}>
+                <p style={{ margin: '0 0 10px 0' }}>📋 Seguradora: {apolice.seguradora} | Nº {apolice.numero_apolice}</p>
                 
-                let apolice = null;
-                if (c.apolices) {
-                  if (Array.isArray(c.apolices) && c.apolices.length > 0) {
-                    apolice = c.apolices[0];
-                  } else if (!Array.isArray(c.apolices)) {
-                    apolice = c.apolices;
-                  }
-                }
-
-                return (
-                  <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
-                    <td style={{ padding: '12px', color: '#555', fontFamily: 'monospace' }}>{c.cpf_cnpj}</td>
-                    <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>
-                      📞 {c.telefone || 'Não informado'}<br />
-                      ✉️ {c.email || 'Não informado'}
-                    </td>
-                    <td style={{ padding: '12px', color: '#0070f3', fontWeight: '500' }}>
-                      🚗 {carro?.marca_modelo || 'Nenhum carro vinculado'}<br />
-                      <span style={{ fontSize: '12px', color: '#666' }}>Placa: {carro?.placa || '-'}</span>
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#e0f2fe', color: '#0369a1' }}>
-                        {c.origem_lead || 'Direto'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      {apolice?.url_pdf_apolice ? (
-                        <a 
-                          href={apolice.url_pdf_apolice} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          style={{ background: '#0070f3', color: '#fff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }}
-                        >
-                          📄 Ver PDF
-                        </a>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                          <label style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>📎 Anexar Apólice:</label>
-                          <input 
-                            type="file" 
-                            accept="application/pdf" 
-                            onChange={(e) => handleUploadTardio(e, apolice?.id, c.id)}
-                            style={{ fontSize: '12px', maxWidth: '180px' }}
-                          />
-                          {statusUpload[c.id] && (
-                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ff9800' }}>
-                              {statusUpload[c.id]}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                {/* Se já tiver PDF anexado, mostra o botão de abrir */}
+                {apolice.pdf_url ? (
+                  <a href={apolice.pdf_url} target="_blank" rel="noreferrer" style={{ background: '#10b981', color: 'white', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', inlineBlock: 'true' }}>
+                    📄 Ver Apólice Anexada
+                  </a>
+                ) : (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', marginBottom: '4px', color: '#475569' }}>Anexar PDF da Apólice:</label>
+                    <input type="file" accept="application/pdf" onChange={(e) => handleUploadApolice(e.target.files[0], cliente.id, apolice.id)} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
+
+      {/* Seção Financeira de Parcelas */}
+      <h2 style={{ marginTop: '40px' }}>💳 Controle de Parcelas a Receber</h2>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+        <thead>
+          <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
+            <th style={{ padding: '10px' }}>Segurado</th>
+            <th>Nº Apólice</th>
+            <th>Parcela</th>
+            <th>Valor</th>
+            <th>Vencimento</th>
+            <th>Status</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {financeiro.map(parcela => (
+            <tr key={parcela.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <td style={{ padding: '10px' }}>{parcela.apolices?.clientes?.nome}</td>
+              <td>{parcela.apolices?.numero_apolice}</td>
+              <td>{parcela.numero_parcela}ª</td>
+              <td>R$ {parcela.valor?.toFixed(2)}</td>
+              <td>{new Date(parcela.data_vencimento).toLocaleDateString('pt-BR')}</td>
+              <td style={{ color: parcela.status_pagamento === 'Pago' ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>{parcela.status_pagamento}</td>
+              <td>
+                {parcela.status_pagamento !== 'Pago' && (
+                  <button onClick={() => pagarParcela(parcela.id)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>Baixar</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  );
+  )
 }
