@@ -27,9 +27,8 @@ export default function ListaClientes() {
       status: c.status || 'Cálculo', valor_calculado: c.valor_calculado || 0, comissao_valor: c.comissao_valor || 0
     });
   }
-
   async function handleExcluirCliente(id) {
-    if (!window.confirm('⚠️ Deseja excluir permanentemente este segurado?')) return;
+    if (!window.confirm('⚠️ Deseja excluir este segurado?')) return;
     try {
       await supabase.from('apolices').delete().eq('cliente_id', id);
       await supabase.from('propostas').delete().eq('cliente_id', id);
@@ -61,14 +60,13 @@ export default function ListaClientes() {
       if (res.success) { alert('Sucesso!'); await atualizarLista(); } else { alert(res.message); }
     } catch (err) { alert(err.message); } finally { setStatusUpload(prev => ({ ...prev, [cId]: '' })); }
   }
-
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>👤 Gestão de Segurados</h1>
-        <a href="/" style={{ fontWeight: 'bold', textDecoration: 'none' }}>← Voltar ao Painel</a>
+        <a href="/" style={{ fontWeight: 'bold', textDecoration: 'none' }}>← Voltar</a>
       </div>
-      {carregando || clientes === null ? <p>🔄 Carregando base de dados...</p> : clientes.length === 0 ? <p>Nenhum segurado localizado.</p> : (
+      {carregando || clientes === null ? <p>🔄 Carregando dados...</p> : clientes.length === 0 ? <p>Nenhum segurado localizado.</p> : (
         <div style={{ display: 'grid', gridTemplateColumns: clienteSelecionado ? '1fr 1fr' : '1fr', gap: '20px' }}>
           <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -125,3 +123,25 @@ export default function ListaClientes() {
                 <option value="Proposta">📋 Proposta Comercial</option>
                 <option value="Apólice">📜 Apólice Fechada / Emitida</option>
                 <option value="Renovado">🔄 Seguro Renovado</option>
+                <option value="Não Renovado">❌ Não Renovado</option>
+              </select>
+            </label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Nome: <input type="text" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} required style={{ width: '100%', padding: '6px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>CPF / CNPJ: <input type="text" value={clienteEdicao.cpf_cnpj} onChange={e => setClienteEdicao({...clienteEdicao, cpf_cnpj: e.target.value})} required style={{ width: '100%', padding: '6px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Modelo Carro: <input type="text" value={clienteEdicao.veiculo_modelo} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_modelo: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Placa: <input type="text" value={clienteEdicao.veiculo_placa} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_placa: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Seguradora: <input type="text" value={clienteEdicao.seguradora} onChange={e => setClienteEdicao({...clienteEdicao, seguradora: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Nº Apólice: <input type="text" value={clienteEdicao.numero_apolice} onChange={e => setClienteEdicao({...clienteEdicao, numero_apolice: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+              <label style={{ fontSize: '12px' }}>Prêmio (R$): <input type="number" step="0.01" value={clienteEdicao.valor_calculado} onChange={e => setClienteEdicao({...clienteEdicao, valor_calculado: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+              <label style={{ fontSize: '12px' }}>Comissão (R$): <input type="number" step="0.01" value={clienteEdicao.comissao_valor} onChange={e => setClienteEdicao({...clienteEdicao, comissao_valor: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '6px 12px', background: '#e5e7eb', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
+              <button type="submit" disabled={salvandoEdicao} style={{ padding: '6px 12px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {pdfVisualizacao && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
