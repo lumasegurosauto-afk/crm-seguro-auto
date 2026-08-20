@@ -11,6 +11,9 @@ export default function ListaClientes() {
   const [clienteEdicao, setClienteEdicao] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
+  // NOVO ESTADO: Armazena o link do PDF que será exibido no leitor interno
+  const [pdfVisualizacao, setPdfVisualizacao] = useState(null);
+
   async function atualizarLista() {
     try {
       const res = await listarClientesCompleto();
@@ -27,7 +30,6 @@ export default function ListaClientes() {
     atualizarLista();
   }, []);
 
-  // Abre a edição mapeando os dados do cliente, veículo e apólice juntos no formulário
   function abrirEdicao(cliente) {
     setClienteEdicao({
       id: cliente.id,
@@ -35,7 +37,6 @@ export default function ListaClientes() {
       cpf_cnpj: cliente.cpf_cnpj,
       telefone: cliente.telefone,
       email: cliente.email,
-      // Puxa os dados atuais ou deixa em branco caso não existam
       veiculo_modelo: cliente.veiculos?.marca_modelo || '',
       veiculo_placa: cliente.veiculos?.placa || '',
       seguradora: cliente.apolices?.seguradora || '',
@@ -50,7 +51,6 @@ export default function ListaClientes() {
     setSalvandoEdicao(true);
 
     try {
-      // 1. Atualiza os dados na tabela 'clientes'
       const { error: errCli } = await supabase
         .from('clientes')
         .update({
@@ -63,7 +63,6 @@ export default function ListaClientes() {
 
       if (errCli) throw errCli;
 
-      // 2. Atualiza os dados do veículo na tabela 'propostas'
       const { error: errProp } = await supabase
         .from('propostas')
         .update({
@@ -74,7 +73,6 @@ export default function ListaClientes() {
 
       if (errProp) throw errProp;
 
-      // 3. Atualiza os dados de controle na tabela 'apolices'
       const { error: errApol } = await supabase
         .from('apolices')
         .update({
@@ -111,9 +109,7 @@ export default function ListaClientes() {
           .from('apolices')
           .insert([{ 
             cliente_id: clienteId, 
-            status_funil: 'Apólice Ativa', 
-            premio_total: 0, 
-            porcentagem_comissao: 0 
+            status_funil: 'Apólice Ativa'
           }])
           .select()
           .single();
@@ -188,14 +184,13 @@ export default function ListaClientes() {
                     </td>
                     <td style={{ padding: '12px' }}>
                       {apolice?.url_pdf_apolice ? (
-                        <a 
-                          href={apolice.url_pdf_apolice} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          style={{ background: '#0070f3', color: '#fff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }}
+                        /* MODIFICAÇÃO: Botão que agora ativa o leitor interno embutido */
+                        <button 
+                          onClick={() => setPdfVisualizacao(apolice.url_pdf_apolice)}
+                          style={{ background: '#10b981', color: '#fff', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }}
                         >
-                          📄 Ver PDF
-                        </a>
+                          👁️ Visualizar PDF
+                        </button>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                           <label style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>📎 Anexar:</label>
@@ -220,58 +215,13 @@ export default function ListaClientes() {
           </table>
         )}
       </div>
+
+      {/* MODAL 1: Formulário de Edição */}
       {clienteEdicao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#333', textAlign: 'center' }}>📝 Editar Cadastro Completo do Segurado</h3>
-            
-            {/* SEÇÃO 1: Dados Pessoais */}
             <div style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>👤 Informações Pessoais</h4>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                 <label style={{ fontSize: '12px', color: '#666' }}>Nome: <input type="text" value={clienteEdicao.nome || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, nome: e.target.value }))} required style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-                <label style={{ fontSize: '12px', color: '#666' }}>CPF / CNPJ: <input type="text" value={clienteEdicao.cpf_cnpj || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, cpf_cnpj: e.target.value }))} required style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <label style={{ fontSize: '12px', color: '#666' }}>Telefone: <input type="text" value={clienteEdicao.telefone || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, telefone: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-                <label style={{ fontSize: '12px', color: '#666' }}>E-mail: <input type="email" value={clienteEdicao.email || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, email: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-              </div>
-            </div>
-
-            {/* SEÇÃO 2: Dados do Veículo */}
-            <div style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>🚗 Dados do Veículo</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <label style={{ fontSize: '12px', color: '#666' }}>Modelo do Carro: <input type="text" value={clienteEdicao.veiculo_modelo || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, veiculo_modelo: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-                <label style={{ fontSize: '12px', color: '#666' }}>Placa: <input type="text" value={clienteEdicao.veiculo_placa || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, veiculo_placa: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-              </div>
-            </div>
-
-            {/* SEÇÃO 3: Controle e Apólice */}
-            <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>📜 Controle da Apólice</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                <label style={{ fontSize: '12px', color: '#666' }}>Seguradora: <input type="text" value={clienteEdicao.seguradora || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, seguradora: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-                <label style={{ fontSize: '12px', color: '#666' }}>Nº Controle/Apólice: <input type="text" value={clienteEdicao.numero_apolice || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, numero_apolice: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <label style={{ fontSize: '12px', color: '#666' }}>Início Vigência: <input type="date" value={clienteEdicao.inicio_vigencia || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, inicio_vigencia: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-                <label style={{ fontSize: '12px', color: '#666' }}>Fim Vigência: <input type="date" value={clienteEdicao.fim_vigencia || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, fim_vigencia: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
-              </div>
-            </div>
-
-            {/* Botões de Ação */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '8px 16px', background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                Cancelar
-              </button>
-              <button type="submit" disabled={salvandoEdicao} style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                {salvandoEdicao ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-    </div>
-  );
-}
