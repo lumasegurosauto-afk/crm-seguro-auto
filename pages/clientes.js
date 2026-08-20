@@ -48,7 +48,7 @@ export default function ListaClientes() {
 
       if (error) throw error;
 
-      alert('Dados do cliente updated!');
+      alert('Dados salvos com sucesso!');
       setClienteEdicao(null);
       await atualizarLista();
     } catch (error) {
@@ -194,7 +194,6 @@ export default function ListaClientes() {
           </table>
         )}
       </div>
-
       {clienteEdicao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '30px', borderRadius: '8px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
@@ -216,4 +215,21 @@ export default function ListaClientes() {
             </div>
 
             <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>E-mail:</label>
+              <input type="email" value={clienteEdicao.email || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, email: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+            </div>
 
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '8px 16px', background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                Cancelar
+              </button>
+              <button type="submit" disabled={salvandoEdicao} style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                {salvandoEdicao ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
