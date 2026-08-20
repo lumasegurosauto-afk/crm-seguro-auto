@@ -71,7 +71,7 @@ export default function Cadastro() {
           apolice_id: apolice.id,
           numero_parcela: i,
           valor: valorDaParcela,
-          data_vencimento: dataVencimento.toISOString().split('T')[0],
+          data_vencimento: dataVencimento.toISOString().split('T')[0], // CORREÇÃO REALIZADA AQUI
           status_pagamento: 'Pendente'
         });
       }
