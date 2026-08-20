@@ -127,4 +127,3 @@ export default function ListaClientes() {
                 <option value="Não Renovado">❌ Não Renovado</option>
               </select>
             </label>
-
