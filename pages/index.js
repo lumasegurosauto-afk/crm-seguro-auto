@@ -12,21 +12,35 @@ export default function Home() {
     async function carregarEstatisticas() {
       try {
         const clientes = await listarClientesCompleto();
-        setTotalSegurados(clientes?.length || 0); // Define a quantidade total de segurados
+        setTotalSegurados(clientes?.length || 0);
 
         const contagemMeses = Array(12).fill(0);
+        
         clientes.forEach(c => {
-          const dataVigencia = c.apolices?.inicio_vigencia || c.inicio_vigencia;
-          if (dataVigencia) {
-            const partes = dataVigencia.split('-');
-            if (partes.length === 3) {
-              const mes = parseInt(partes[1], 10) - 1; // Pega o mês da data
-              if (mes >= 0 && mes <= 11) contagemMeses[mes] += 1;
+          // Captura a string bruta da data ("YYYY-MM-DD") direto do banco
+          const dataBruta = c.apolices?.inicio_vigencia || c.inicio_vigencia;
+          
+          if (dataBruta && typeof dataBruta === 'string') {
+            // Divide o texto pelos traços
+            const partes = dataBruta.split('-');
+            if (partes.length >= 2) {
+              // Pega o segundo pedaço (o mês) e converte em número
+              const mesNum = parseInt(partes[1], 10); 
+              const indexMes = mesNum - 1; // Transforma o mês 01 em índice 0 (Janeiro)
+              
+              if (indexMes >= 0 && indexMes <= 11) {
+                contagemMeses[indexMes] += 1;
+              }
             }
           }
         });
+        
         setDadosMapeados(contagemMeses);
-      } catch (err) { console.error(err); } finally { setCarregando(false); }
+      } catch (err) { 
+        console.error("Erro no gráfico:", err); 
+      } finally { 
+        setCarregando(false); 
+      }
     }
     carregarEstatisticas();
   }, []);
@@ -37,7 +51,6 @@ export default function Home() {
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <h1 style={{ margin: 0, color: '#333' }}>🚀 Painel de Controle CRM Seguros</h1>
       
-      {/* CARD DO TOTAL DA CARTEIRA DE SEGURADOS */}
       <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginTop: '20px', width: '250px' }}>
         <h4 style={{ margin: '0 0 10px 0', color: '#666' }}>📋 Carteira de Segurados</h4>
         <p style={{ fontSize: '32px', fontWeight: 'bold', margin: 0, color: '#0070f3' }}>
