@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { listarClientesCompleto } from '../lib/segurosService';
+import { supabase } from '../lib/supabaseClient';
 
 export default function Home() {
   const [dadosMapeados, setDadosMapeados] = useState(Array(12).fill(0));
@@ -9,47 +10,55 @@ export default function Home() {
   const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
   useEffect(() => {
-    async function carregarEstatisticas() {
+    async function verificarSessaoECarregar() {
+      // 1. Verifica se o usuário está logado no Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Se não houver sessão ativa, expulsa para a tela de login
+        window.location.href = '/login';
+        return;
+      }
+
       try {
         const clientes = await listarClientesCompleto();
         setTotalSegurados(clientes?.length || 0);
-
         const contagemMeses = Array(12).fill(0);
         
         clientes.forEach(c => {
-          // Captura a string bruta da data ("YYYY-MM-DD") direto do banco
-          const dataBruta = c.apolices?.inicio_vigencia || c.inicio_vigencia;
-          
-          if (dataBruta && typeof dataBruta === 'string') {
-            // Divide o texto pelos traços
-            const partes = dataBruta.split('-');
+          const dataVigencia = c.apolices?.inicio_vigencia || c.inicio_vigencia;
+          if (dataVigencia && typeof dataVigencia === 'string') {
+            const partes = dataVigencia.split('-');
             if (partes.length >= 2) {
-              // Pega o segundo pedaço (o mês) e converte em número
               const mesNum = parseInt(partes[1], 10); 
-              const indexMes = mesNum - 1; // Transforma o mês 01 em índice 0 (Janeiro)
-              
-              if (indexMes >= 0 && indexMes <= 11) {
-                contagemMeses[indexMes] += 1;
-              }
+              const indexMes = mesNum - 1;
+              if (indexMes >= 0 && indexMes <= 11) contagemMeses[indexMes] += 1;
             }
           }
         });
-        
         setDadosMapeados(contagemMeses);
       } catch (err) { 
-        console.error("Erro no gráfico:", err); 
+        console.error(err); 
       } finally { 
         setCarregando(false); 
       }
     }
-    carregarEstatisticas();
+    verificarSessaoECarregar();
   }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  }
 
   const maiorVolume = Math.max(...dadosMapeados, 1);
 
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
-      <h1 style={{ margin: 0, color: '#333' }}>🚀 Painel de Controle CRM Seguros</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0, color: '#333' }}>🚀 Painel de Controle CRM Seguros</h1>
+        <button onClick={handleLogout} style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>🔒 Sair / Logout</button>
+      </div>
       
       <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginTop: '20px', width: '250px' }}>
         <h4 style={{ margin: '0 0 10px 0', color: '#666' }}>📋 Carteira de Segurados</h4>
