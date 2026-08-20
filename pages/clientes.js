@@ -58,7 +58,7 @@ export default function ListaClientes() {
         id = data.id;
       }
       const res = await anexarApolice(arquivos, id);
-      if (res.success) { alert('Sucesso!'); await atualizarLista(); } else { alert(res.message); }
+      if (res.success) { alert('🚀 PDF anexado com sucesso!'); await atualizarLista(); } else { alert(res.message); }
     } catch (err) { alert(err.message); } finally { setStatusUpload(prev => ({ ...prev, [cId]: '' })); }
   }
 
@@ -92,7 +92,7 @@ export default function ListaClientes() {
               <p><b>Veículo:</b> 🚗 {clienteSelecionado.veiculos?.marca_modelo || '-'} (Placa: {clienteSelecionado.veiculos?.placa || '-'})</p>
               <p><b>Seguradora:</b> {clienteSelecionado.apolices?.seguradora || '-'} | <b>Apólice Nº:</b> {clienteSelecionado.apolices?.numero_apolice || '-'}</p>
               <p><b>Vigência:</b> 📅 {clienteSelecionado.apolices?.inicio_vigencia || '-'} até {clienteSelecionado.apolices?.fim_vigencia || '-'}</p>
-              <p><b>Valores:</b> Prêmio: R$ {clienteSelecionado.valor_calculado} | Commission: R$ {clienteSelecionado.comissao_valor}</p>
+              <p><b>Valores:</b> Prêmio: R$ {clienteSelecionado.valor_calculado} | Comissão: R$ {clienteSelecionado.comissao_valor}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={() => abrirEdicao(clienteSelecionado)} style={{ flex: 1, padding: '10px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ Editar Campos</button>
@@ -101,7 +101,7 @@ export default function ListaClientes() {
                 <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginTop: '5px' }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>📎 Documento Digitalizado (PDF):</label>
                   {clienteSelecionado.apolices?.url_pdf_apolice ? (
-                    <button onClick={() => setPdfVisualizacao(clienteSelecionado.apolices.url_pdf_apolice)} style={{ width: '100%', padding: '8px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>👁️ Visualizar Apólice na Tela</button>
+                    <button type="button" onClick={() => setPdfVisualizacao(clienteSelecionado.apolices.url_pdf_apolice)} style={{ width: '100%', padding: '8px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>👁️ Visualizar Apólice na Tela</button>
                   ) : (
                     <div>
                       <input type="file" accept="application/pdf" onChange={e => handleUploadTardio(e, clienteSelecionado.apolices?.id, clienteSelecionado.id)} style={{ fontSize: '12px', width: '100%' }} />
