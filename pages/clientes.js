@@ -92,7 +92,7 @@ export default function ListaClientes() {
               <p><b>Veículo:</b> 🚗 {clienteSelecionado.veiculos?.marca_modelo || '-'} (Placa: {clienteSelecionado.veiculos?.placa || '-'})</p>
               <p><b>Seguradora:</b> {clienteSelecionado.apolices?.seguradora || '-'} | <b>Apólice Nº:</b> {clienteSelecionado.apolices?.numero_apolice || '-'}</p>
               <p><b>Vigência:</b> 📅 {clienteSelecionado.apolices?.inicio_vigencia || '-'} até {clienteSelecionado.apolices?.fim_vigencia || '-'}</p>
-              <p><b>Valores:</b> Prêmio: R$ {clienteSelecionado.valor_calculado} | Comissão: R$ {clienteSelecionado.comissao_valor}</p>
+              <p><b>Valores:</b> Prêmio: R$ {clienteSelecionado.valor_calculado} | Commission: R$ {clienteSelecionado.comissao_valor}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={() => abrirEdicao(clienteSelecionado)} style={{ flex: 1, padding: '10px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ Editar Campos</button>
