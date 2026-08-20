@@ -17,6 +17,8 @@ export default function ListaClientes() {
       setClientes(res || []);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
+      // ALERTA DE DIAGNÓSTICO: Mostra o erro real na tela do navegador
+      alert("🚨 Erro Crítico do Banco: " + (error.message || error));
       setClientes([]);
     } finally {
       setCarregando(false);
@@ -117,24 +119,13 @@ export default function ListaClientes() {
                 <th style={{ padding: '12px' }}>Nome</th>
                 <th style={{ padding: '12px' }}>CPF / CNPJ</th>
                 <th style={{ padding: '12px' }}>Contato</th>
-                <th style={{ padding: '12px' }}>Veículo</th>
-                <th style={{ padding: '12px' }}>Origem</th>
                 <th style={{ padding: '12px' }}>Ações de Cadastro</th>
                 <th style={{ padding: '12px' }}>Apólice</th>
               </tr>
             </thead>
             <tbody>
               {clientes.map((c) => {
-                const carro = Array.isArray(c.veiculos) ? c.veiculos : c.veiculos;
-                let apolice = null;
-                if (c.apolices) {
-                  if (Array.isArray(c.apolices) && c.apolices.length > 0) {
-                    apolice = c.apolices;
-                  } else if (!Array.isArray(c.apolices)) {
-                    apolice = c.apolices;
-                  }
-                }
-
+                let apolice = c.apolices;
                 return (
                   <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
@@ -142,15 +133,6 @@ export default function ListaClientes() {
                     <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>
                       📞 {c.telefone || 'Não informado'}<br />
                       ✉️ {c.email || 'Não informado'}
-                    </td>
-                    <td style={{ padding: '12px', color: '#0070f3', fontWeight: '500' }}>
-                      🚗 {carro?.marca_modelo || 'Nenhum carro vinculado'}<br />
-                      <span style={{ fontSize: '12px', color: '#666' }}>Placa: {carro?.placa || '-'}</span>
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '12px', background: '#e0f2fe', color: '#0369a1' }}>
-                        {c.origem_lead || 'Direto'}
-                      </span>
                     </td>
                     <td style={{ padding: '12px' }}>
                       <button 
@@ -194,6 +176,7 @@ export default function ListaClientes() {
           </table>
         )}
       </div>
+
       {clienteEdicao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '30px', borderRadius: '8px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
