@@ -48,11 +48,11 @@ export default function ListaClientes() {
 
       if (error) throw error;
 
-      alert('Dados do cliente atualizados com sucesso!');
+      alert('Dados do cliente updated!');
       setClienteEdicao(null);
       await atualizarLista();
     } catch (error) {
-      alert(`Erro ao salvar edições: ${error.message}`);
+      alert(`Erro: ${error.message}`);
     } finally {
       setSalvandoEdicao(false);
     }
@@ -89,11 +89,11 @@ export default function ListaClientes() {
         setStatusUpload(prev => ({ ...prev, [clienteId]: '✅ Sucesso!' }));
         await atualizarLista();
       } else {
-        alert(`Falha no upload: ${resultado.message}`);
+        alert(`Falha: ${resultado.message}`);
         setStatusUpload(prev => ({ ...prev, [clienteId]: '' }));
       }
     } catch (error) {
-      alert(`Erro no sistema: ${error.message}`);
+      alert(`Erro: ${error.message}`);
       setStatusUpload(prev => ({ ...prev, [clienteId]: '' }));
     }
   }
@@ -129,7 +129,7 @@ export default function ListaClientes() {
                 let apolice = null;
                 if (c.apolices) {
                   if (Array.isArray(c.apolices) && c.apolices.length > 0) {
-                    apolice = c.apolices[0];
+                    apolice = c.apolices;
                   } else if (!Array.isArray(c.apolices)) {
                     apolice = c.apolices;
                   }
@@ -214,4 +214,6 @@ export default function ListaClientes() {
               <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>Telefone:</label>
               <input type="text" value={clienteEdicao.telefone || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, telefone: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
             </div>
+
+            <div style={{ marginBottom: '20px' }}>
 
