@@ -26,6 +26,34 @@ export default function ListaClientes() {
     });
   }
 
+  async function handleExcluirCliente(id, nome) {
+    const confirmar = window.confirm(`⚠️ ATENÇÃO: Tem certeza que deseja excluir permanentemente o segurado "${nome}" e todos os seus veículos, propostas, apólices e parcelas vinculadas?`);
+    if (!confirmar) return;
+
+    try {
+      // 1. Puxa as apólices do cliente para apagar as parcelas financeiras vinculadas primeiro
+      const { data: apoliceData } = await supabase.from('apolices').select('id').eq('cliente_id', id);
+      if (apoliceData && apoliceData.length > 0) {
+        const idsApolices = apoliceData.map(a => a.id);
+        await supabase.from('parcelas').delete().in('apolice_id', idsApolices);
+      }
+
+      // 2. Deleta os registros das tabelas dependentes secundárias
+      await supabase.from('apolices').delete().eq('cliente_id', id);
+      await supabase.from('propostas').delete().eq('cliente_id', id);
+
+      // 3. Deleta o registro definitivo do cliente
+      const { error } = await supabase.from('clientes').delete().eq('id', id);
+
+      if (error) throw error;
+
+      alert('🗑️ Segurado e todos os seus históricos foram removidos com sucesso!');
+      await atualizarLista();
+    } catch (err) {
+      alert(`Erro ao excluir: ${err.message}`);
+    }
+  }
+
   async function salvarDadosEditados(e) {
     e.preventDefault(); setSalvandoEdicao(true);
     try {
@@ -70,7 +98,10 @@ export default function ListaClientes() {
                   <td style={{ padding: '12px' }}><b>{c.nome}</b><br/><span style={{ fontSize: '12px', color: '#666' }}>{c.cpf_cnpj}</span></td>
                   <td style={{ padding: '12px' }}>🚗 {c.veiculos?.marca_modelo || '-'}<br/><span style={{ fontSize: '12px', color: '#666' }}>Placa: {c.veiculos?.placa || '-'}</span></td>
                   <td style={{ padding: '12px', color: '#059669', fontWeight: 'bold' }}>🛡️ {c.apolices?.seguradora || 'Não emitida'}</td>
-                  <td style={{ padding: '12px' }}><button onClick={() => abrirEdicao(c)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>✏️ Editar</button></td>
+                  <td style={{ padding: '12px', display: 'flex', gap: '8px' }}>
+                    <button onClick={() => abrirEdicao(c)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>✏️ Editar</button>
+                    <button onClick={() => handleExcluirCliente(c.id, c.nome)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>❌ Excluir</button>
+                  </td>
                   <td style={{ padding: '12px' }}>{c.apolices?.url_pdf_apolice ? <button onClick={() => setPdfVisualizacao(c.apolices.url_pdf_apolice)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>👁️ Ver PDF</button> : <input type="file" accept="application/pdf" onChange={e => handleUploadTardio(e, c.apolices?.id, c.id)} style={{ fontSize: '12px' }} />}</td>
                 </tr>
               ))}
@@ -95,13 +126,4 @@ export default function ListaClientes() {
         </div>
       )}
       {pdfVisualizacao && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: '#fff', width: '100%', maxWidth: '800px', height: '80vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ background: '#1e293b', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: '#fff', fontWeight: 'bold' }}>📄 Visualizador PDF</span><button onClick={() => setPdfVisualizacao(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Fechar</button></div>
-            <iframe src={pdfVisualizacao} style={{ width: '100%', height: '100%', border: 'none' }} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+
