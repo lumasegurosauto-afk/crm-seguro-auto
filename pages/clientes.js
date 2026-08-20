@@ -27,31 +27,20 @@ export default function ListaClientes() {
   }
 
   async function handleExcluirCliente(id, nome) {
-    const confirmar = window.confirm(`⚠️ ATENÇÃO: Tem certeza que deseja excluir permanentemente o segurado "${nome}" e todos os seus veículos, propostas, apólices e parcelas vinculadas?`);
+    const confirmar = window.confirm(`⚠️ Deseja excluir permanentemente o segurado "${nome}"?`);
     if (!confirmar) return;
-
     try {
-      // 1. Puxa as apólices do cliente para apagar as parcelas financeiras vinculadas primeiro
-      const { data: apoliceData } = await supabase.from('apolices').select('id').eq('cliente_id', id);
-      if (apoliceData && apoliceData.length > 0) {
-        const idsApolices = apoliceData.map(a => a.id);
-        await supabase.from('parcelas').delete().in('apolice_id', idsApolices);
+      const { data: apolices } = await supabase.from('apolices').select('id').eq('cliente_id', id);
+      if (apolices && apolices.length > 0) {
+        await supabase.from('parcelas').delete().in('apolice_id', apolices.map(a => a.id));
       }
-
-      // 2. Deleta os registros das tabelas dependentes secundárias
       await supabase.from('apolices').delete().eq('cliente_id', id);
       await supabase.from('propostas').delete().eq('cliente_id', id);
-
-      // 3. Deleta o registro definitivo do cliente
       const { error } = await supabase.from('clientes').delete().eq('id', id);
-
       if (error) throw error;
-
-      alert('🗑️ Segurado e todos os seus históricos foram removidos com sucesso!');
+      alert('🗑️ Segurado removido com sucesso!');
       await atualizarLista();
-    } catch (err) {
-      alert(`Erro ao excluir: ${err.message}`);
-    }
+    } catch (err) { alert(`Erro: ${err.message}`); }
   }
 
   async function salvarDadosEditados(e) {
@@ -126,4 +115,6 @@ export default function ListaClientes() {
         </div>
       )}
       {pdfVisualizacao && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
+          <div style={{ background: '#fff', width: '100%', maxWidth: '800px', height: '80vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
