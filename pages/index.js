@@ -14,11 +14,17 @@ export default function Home() {
         const contagemMeses = Array(12).fill(0);
 
         clientes.forEach(c => {
-          if (c.apolices?.inicio_vigencia) {
-            const data = new Date(c.apolices.inicio_vigencia);
-            const mes = data.getUTCMonth();
-            if (mes >= 0 && mes <= 11) {
-              contagemMeses[mes] += 1;
+          // Correção de leitura estrita: verifica todas as possibilidades onde a vigência foi salva
+          const dataVigencia = c.apolices?.inicio_vigencia || c.inicio_vigencia;
+          
+          if (dataVigencia) {
+            // Divide a string "YYYY-MM-DD" para evitar problemas de fuso horário do navegador
+            const partes = dataVigencia.split('-');
+            if (partes.length === 3) {
+              const mes = parseInt(partes[1], 10) - 1; // Transforma "01" em 0 (Janeiro)
+              if (mes >= 0 && mes <= 11) {
+                contagemMeses[mes] += 1;
+              }
             }
           }
         });
@@ -33,7 +39,6 @@ export default function Home() {
   }, []);
 
   const maiorVolume = Math.max(...dadosMapeados, 1);
-
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <h1 style={{ margin: 0, color: '#333' }}>🚀 Painel de Controle CRM Seguros</h1>
@@ -66,10 +71,5 @@ export default function Home() {
                   </span>
                 </div>
               );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+
 }
