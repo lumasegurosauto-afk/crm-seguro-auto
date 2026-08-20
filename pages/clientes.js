@@ -66,7 +66,6 @@ export default function ListaClientes() {
       if (res.success) { alert('Sucesso!'); await atualizarLista(); } else { alert(res.message); }
     } catch (err) { alert(err.message); } finally { setStatusUpload(prev => ({ ...prev, [cId]: '' })); }
   }
-
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -117,4 +116,11 @@ export default function ListaClientes() {
       {pdfVisualizacao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
           <div style={{ background: '#fff', width: '100%', maxWidth: '800px', height: '80vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
+            <div style={{ background: '#1e293b', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: '#fff', fontWeight: 'bold' }}>📄 Visualizador PDF</span><button onClick={() => setPdfVisualizacao(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Fechar</button></div>
+            <iframe src={pdfVisualizacao} style={{ width: '100%', height: '100%', border: 'none' }} title="Leitor PDF" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
