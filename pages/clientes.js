@@ -8,8 +8,6 @@ export default function ListaClientes() {
   const [clientes, setClientes] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [statusUpload, setStatusUpload] = useState({});
-
-  // Estados para gerenciar o Modal de Edição
   const [clienteEdicao, setClienteEdicao] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
@@ -29,18 +27,15 @@ export default function ListaClientes() {
     atualizarLista();
   }, []);
 
-  // Abre a janela de edição preenchendo os campos com os valores atuais
   function abrirEdicao(cliente) {
     setClienteEdicao({ ...cliente });
   }
 
-  // Envia as alterações para o Supabase
   async function salvarDadosEditados(e) {
     e.preventDefault();
     setSalvandoEdicao(true);
 
     try {
-      // Atualiza a tabela de clientes no Supabase pelo ID único
       const { error } = await supabase
         .from('clientes')
         .update({
@@ -49,13 +44,13 @@ export default function ListaClientes() {
           telefone: clienteEdicao.telefone,
           email: clienteEdicao.email,
         })
-        .eq('id', clienteEdicao.id); // Garante a edição estrita de um único registro
+        .eq('id', clienteEdicao.id);
 
       if (error) throw error;
 
       alert('Dados do cliente atualizados com sucesso!');
-      setClienteEdicao(null); // Fecha a modal
-      await atualizarLista();  // Atualiza a tabela na tela
+      setClienteEdicao(null);
+      await atualizarLista();
     } catch (error) {
       alert(`Erro ao salvar edições: ${error.message}`);
     } finally {
@@ -111,7 +106,6 @@ export default function ListaClientes() {
       </div>
 
       <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        
         {carregando || clientes === null ? (
           <p style={{ color: '#0070f3', textAlign: 'center', fontWeight: 'bold' }}>🔄 Carregando listagem de clientes...</p>
         ) : clientes.length === 0 ? (
@@ -132,11 +126,10 @@ export default function ListaClientes() {
             <tbody>
               {clientes.map((c) => {
                 const carro = Array.isArray(c.veiculos) ? c.veiculos : c.veiculos;
-                
                 let apolice = null;
                 if (c.apolices) {
                   if (Array.isArray(c.apolices) && c.apolices.length > 0) {
-                    apolice = c.apolices;
+                    apolice = c.apolices[0];
                   } else if (!Array.isArray(c.apolices)) {
                     apolice = c.apolices;
                   }
@@ -159,8 +152,6 @@ export default function ListaClientes() {
                         {c.origem_lead || 'Direto'}
                       </span>
                     </td>
-                    
-                    {/* NOVA COLUNA: Botão de Edição de Dados */}
                     <td style={{ padding: '12px' }}>
                       <button 
                         onClick={() => abrirEdicao(c)}
@@ -169,7 +160,6 @@ export default function ListaClientes() {
                         ✏️ Editar Dados
                       </button>
                     </td>
-
                     <td style={{ padding: '12px' }}>
                       {apolice?.url_pdf_apolice ? (
                         <a 
@@ -205,10 +195,9 @@ export default function ListaClientes() {
         )}
       </div>
 
-      {/* JANELA MODAL FLUTUANTE DE EDIÇÃO (Aparece apenas quando um cliente é selecionado) */}
       {clienteEdicao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <form onSubmit={salvandoDadosEditados || salvarDadosEditados} style={{ background: '#fff', padding: '30px', borderRadius: '8px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
+          <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '30px', borderRadius: '8px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
             <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>📝 Editar Informações do Segurado</h3>
             
             <div style={{ marginBottom: '12px' }}>
@@ -218,3 +207,11 @@ export default function ListaClientes() {
 
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>CPF / CNPJ:</label>
+              <input type="text" value={clienteEdicao.cpf_cnpj || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, cpf_cnpj: e.target.value }))} required style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>Telefone:</label>
+              <input type="text" value={clienteEdicao.telefone || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, telefone: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+            </div>
+
