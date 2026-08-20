@@ -62,6 +62,7 @@ export default function ListaClientes() {
       if (res.success) { alert('Sucesso!'); await atualizarLista(); } else { alert(res.message); }
     } catch (err) { alert(err.message); } finally { setStatusUpload(prev => ({ ...prev, [cId]: '' })); }
   }
+
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -127,24 +128,3 @@ export default function ListaClientes() {
                 <option value="Não Renovado">❌ Não Renovado</option>
               </select>
             </label>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Nome: <input type="text" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} required style={{ width: '100%', padding: '6px' }} /></label>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>CPF / CNPJ: <input type="text" value={clienteEdicao.cpf_cnpj} onChange={e => setClienteEdicao({...clienteEdicao, cpf_cnpj: e.target.value})} required style={{ width: '100%', padding: '6px' }} /></label>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Modelo Carro: <input type="text" value={clienteEdicao.veiculo_modelo} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_modelo: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Placa: <input type="text" value={clienteEdicao.veiculo_placa} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_placa: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Seguradora: <input type="text" value={clienteEdicao.seguradora} onChange={e => setClienteEdicao({...clienteEdicao, seguradora: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
-            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Nº Apólice: <input type="text" value={clienteEdicao.numero_apolice} onChange={e => setClienteEdicao({...clienteEdicao, numero_apolice: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
-              <label style={{ fontSize: '12px' }}>Prêmio (R$): <input type="number" step="0.01" value={clienteEdicao.valor_calculado} onChange={e => setClienteEdicao({...clienteEdicao, valor_calculado: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
-              <label style={{ fontSize: '12px' }}>Comissão (R$): <input type="number" step="0.01" value={clienteEdicao.comissao_valor} onChange={e => setClienteEdicao({...clienteEdicao, comissao_valor: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '6px 12px', background: '#e5e7eb', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
-              <button type="submit" disabled={salvandoEdicao} style={{ padding: '6px 12px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Salvar</button>
-            </div>
-          </form>
-        </div>
-      )}
-      {pdfVisualizacao && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: '#fff', width: '100%', maxWidth: '850px', height: '80vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
