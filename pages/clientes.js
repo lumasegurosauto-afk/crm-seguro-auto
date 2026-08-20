@@ -10,6 +10,7 @@ export default function ListaClientes() {
   const [clienteEdicao, setClienteEdicao] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [pdfVisualizacao, setPdfVisualizacao] = useState(null);
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
 
   async function atualizarLista() {
     try { const res = await listarClientesCompleto(); setClientes(res || []); }
@@ -22,24 +23,19 @@ export default function ListaClientes() {
       id: c.id, nome: c.nome || '', cpf_cnpj: c.cpf_cnpj || '', telefone: c.telefone || '', email: c.email || '',
       veiculo_modelo: c.veiculos?.marca_modelo || '', veiculo_placa: c.veiculos?.placa || '',
       seguradora: c.apolices?.seguradora || '', numero_apolice: c.apolices?.numero_apolice || '',
-      inicio_vigencia: c.apolices?.inicio_vigencia || '', fim_vigencia: c.apolices?.fim_vigencia || ''
+      inicio_vigencia: c.apolices?.inicio_vigencia || '', fim_vigencia: c.apolices?.fim_vigencia || '',
+      status: c.status || 'Cálculo',
+      valor_calculado: c.valor_calculado || 0, comissao_valor: c.comissao_valor || 0
     });
   }
 
-  async function handleExcluirCliente(id, nome) {
-    const confirmar = window.confirm(`⚠️ Deseja excluir permanentemente o segurado "${nome}"?`);
-    if (!confirmar) return;
+  async function handleExcluirCliente(id) {
+    if (!window.confirm('⚠️ Deseja excluir permanentemente este segurado?')) return;
     try {
-      const { data: apolices } = await supabase.from('apolices').select('id').eq('cliente_id', id);
-      if (apolices && apolices.length > 0) {
-        await supabase.from('parcelas').delete().in('apolice_id', apolices.map(a => a.id));
-      }
       await supabase.from('apolices').delete().eq('cliente_id', id);
       await supabase.from('propostas').delete().eq('cliente_id', id);
-      const { error } = await supabase.from('clientes').delete().eq('id', id);
-      if (error) throw error;
-      alert('🗑️ Segurado removido com sucesso!');
-      await atualizarLista();
+      await supabase.from('clientes').delete().eq('id', id);
+      alert('🗑️ Registro removido!'); await atualizarLista(); setClienteSelecionado(null);
     } catch (err) { alert(`Erro: ${err.message}`); }
   }
 
@@ -47,9 +43,9 @@ export default function ListaClientes() {
     e.preventDefault(); setSalvandoEdicao(true);
     try {
       await supabase.from('clientes').update({ nome: clienteEdicao.nome, cpf_cnpj: clienteEdicao.cpf_cnpj, telefone: clienteEdicao.telefone, email: clienteEdicao.email }).eq('id', clienteEdicao.id);
-      await supabase.from('propostas').update({ veiculo_modelo: clienteEdicao.veiculo_modelo, veiculo_placa: clienteEdicao.veiculo_placa }).eq('cliente_id', clienteEdicao.id);
+      await supabase.from('propostas').update({ veiculo_modelo: clienteEdicao.veiculo_modelo, veiculo_placa: clienteEdicao.veiculo_placa, valor_calculated: parseFloat(clienteEdicao.valor_calculado), comissao_valor: parseFloat(clienteEdicao.comissao_valor), status: clienteEdicao.status }).eq('cliente_id', clienteEdicao.id);
       await supabase.from('apolices').update({ numero_apolice: clienteEdicao.numero_apolice, seguradora: clienteEdicao.seguradora, inicio_vigencia: clienteEdicao.inicio_vigencia, fim_vigencia: clienteEdicao.fim_vigencia }).eq('cliente_id', clienteEdicao.id);
-      alert('🎉 Cadastro atualizado!'); setClienteEdicao(null); await atualizarLista();
+      alert('🎉 CRM Atualizado com sucesso!'); setClienteEdicao(null); setClienteSelecionado(null); await atualizarLista();
     } catch (err) { alert(err.message); } finally { setSalvandoEdicao(false); }
   }
 
@@ -69,58 +65,103 @@ export default function ListaClientes() {
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>👤 Clientes Cadastrados</h1>
-        <a href="/" style={{ fontWeight: 'bold', textDecoration: 'none' }}>← Voltar</a>
+        <h1 style={{ margin: 0 }}>👤 Gestão de Segurados</h1>
+        <a href="/" style={{ fontWeight: 'bold', textDecoration: 'none' }}>← Voltar ao Painel</a>
       </div>
-      {carregando || clientes === null ? <p>🔄 Carregando...</p> : clientes.length === 0 ? <p>Nenhum cliente localizado.</p> : (
-        <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee' }}>
-                <th style={{ padding: '12px' }}>Nome / CPF</th><th style={{ padding: '12px' }}>Veículo / Placa</th><th style={{ padding: '12px' }}>Seguradora</th><th style={{ padding: '12px' }}>Ações</th><th style={{ padding: '12px' }}>Apólice</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.map(c => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '12px' }}><b>{c.nome}</b><br/><span style={{ fontSize: '12px', color: '#666' }}>{c.cpf_cnpj}</span></td>
-                  <td style={{ padding: '12px' }}>🚗 {c.veiculos?.marca_modelo || '-'}<br/><span style={{ fontSize: '12px', color: '#666' }}>Placa: {c.veiculos?.placa || '-'}</span></td>
-                  <td style={{ padding: '12px', color: '#059669', fontWeight: 'bold' }}>🛡️ {c.apolices?.seguradora || 'Não emitida'}</td>
-                  <td style={{ padding: '12px', display: 'flex', gap: '8px' }}>
-                    <button onClick={() => abrirEdicao(c)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>✏️ Editar</button>
-                    <button onClick={() => handleExcluirCliente(c.id, c.nome)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>❌ Excluir</button>
-                  </td>
-                  <td style={{ padding: '12px' }}>{c.apolices?.url_pdf_apolice ? <button onClick={() => setPdfVisualizacao(c.apolices.url_pdf_apolice)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>👁️ Ver PDF</button> : <input type="file" accept="application/pdf" onChange={e => handleUploadTardio(e, c.apolices?.id, c.id)} style={{ fontSize: '12px' }} />}</td>
+
+      {carregando || clientes === null ? <p>🔄 Carregando base de dados...</p> : clientes.length === 0 ? <p>Nenhum segurado localizado.</p> : (
+        <div style={{ display: 'grid', gridTemplateColumns: clienteSelecionado ? '1fr 1fr' : '1fr', gap: '20px' }}>
+          
+          {/* TABELA PRINCIPAL */}
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee' }}>
+                  <th style={{ padding: '12px' }}>Nome do Segurado</th>
+                  <th style={{ padding: '12px' }}>Fase Funil</th>
+                  <th style={{ padding: '12px' }}>Ação</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {clientes.map(c => (
+                  <tr key={c.id} style={{ borderBottom: '1px solid #eee', background: clienteSelecionado?.id === c.id ? '#f0fdf4' : 'transparent' }}>
+                    <td style={{ padding: '12px' }}>
+                      <button onClick={() => setClienteSelecionado(c)} style={{ background: 'none', border: 'none', padding: 0, color: '#0070f3', fontWeight: 'bold', cursor: 'pointer', textAlign: 'left', fontSize: '14px' }}>
+                        {c.nome}
+                      </button>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', background: c.status === 'Apólice' || c.status === 'Renovado' ? '#dcfce7' : c.status === 'Proposta' ? '#fef9c3' : '#f3f4f6', color: c.status === 'Apólice' || c.status === 'Renovado' ? '#15803d' : c.status === 'Proposta' ? '#a16207' : '#1f2937' }}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <button onClick={() => abrirEdicao(c)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✏️ Rápido</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PAINEL LATERAL DE DETALHES COMPLETOS DO CLIENTE */}
+          {clienteSelecionado && (
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', borderTop: '4px solid #0070f3' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0 }}>📋 Ficha do Segurado</h3>
+                <button onClick={() => setClienteSelecionado(null)} style={{ background: '#eee', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Fechar ✕</button>
+              </div>
+              <p><b>Nome:</b> {clienteSelecionado.nome}</p>
+              <p><b>Documento:</b> {clienteSelecionado.cpf_cnpj}</p>
+              <p><b>Contato:</b> 📞 {clienteSelecionado.telefone || '-'} | ✉️ {clienteSelecionado.email || '-'}</p>
+              <p><b>Veículo:</b> 🚗 {clienteSelecionado.veiculos?.marca_modelo || '-'} (Placa: {clienteSelecionado.veiculos?.placa || '-'})</p>
+              <p><b>Seguradora Parceira:</b> {clienteSelecionado.apolices?.seguradora || 'Não emitida'}</p>
+              <p><b>Apólice Nº:</b> {clienteSelecionado.apolices?.numero_apolice || '-'}</p>
+              <p><b>Vigência:</b> 📅 {clienteSelecionado.apolices?.inicio_vigencia || '-'} até {clienteSelecionado.apolices?.fim_vigencia || '-'}</p>
+              <p><b>Financeiro:</b> Prêmio R$ {clienteSelecionado.valor_calculado} | Comissão R$ {clienteSelecionado.comissao_valor}</p>
+              
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                <button onClick={() => abrirEdicao(clienteSelecionado)} style={{ flex: 1, padding: '10px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ Editar Informações</button>
+                {clienteSelecionado.apolices?.url_pdf_apolice ? (
+                  <button onClick={() => setPdfVisualizacao(clienteSelecionado.apolices.url_pdf_apolice)} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>👁️ Abrir PDF</button>
+                ) : (
+                  <div style={{ flex: 1 }}><input type="file" accept="application/pdf" onChange={e => handleUploadTardio(e, clienteSelecionado.apolices?.id, clienteSelecionado.id)} style={{ fontSize: '12px' }} /></div>
+                )}
+                <button onClick={() => handleExcluirCliente(clienteSelecionado.id)} style={{ padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🗑️ Deletar</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* MODAL DE EDIÇÃO AVANÇADA COM CONTROLE DE FUNIL E RENOVAÇÃO */}
       {clienteEdicao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '15px', textAlign: 'center' }}>📝 Editar Segurado</h3>
-            <label style={{ display: 'block', fontSize: '13px', marginBottom: '8px' }}>Nome: <input type="text" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} required style={{ width: '100%', padding: '6px', marginTop: '4px', boxSizing: 'border-box' }} /></label>
-            <label style={{ display: 'block', fontSize: '13px', marginBottom: '8px' }}>CPF/CNPJ: <input type="text" value={clienteEdicao.cpf_cnpj} onChange={e => setClienteEdicao({...clienteEdicao, cpf_cnpj: e.target.value})} required style={{ width: '100%', padding: '6px', marginTop: '4px', boxSizing: 'border-box' }} /></label>
-            <label style={{ display: 'block', fontSize: '13px', marginBottom: '8px' }}>Modelo Carro: <input type="text" value={clienteEdicao.veiculo_modelo} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_modelo: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px', boxSizing: 'border-box' }} /></label>
-            <label style={{ display: 'block', fontSize: '13px', marginBottom: '8px' }}>Placa: <input type="text" value={clienteEdicao.veiculo_placa} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_placa: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px', boxSizing: 'border-box' }} /></label>
-            <label style={{ display: 'block', fontSize: '13px', marginBottom: '15px' }}>Seguradora: <input type="text" value={clienteEdicao.seguradora} onChange={e => setClienteEdicao({...clienteEdicao, seguradora: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px', boxSizing: 'border-box' }} /></label>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '6px 12px', background: '#e5e7eb', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
-              <button type="submit" disabled={salvandoEdicao} style={{ padding: '6px 12px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>{salvandoEdicao ? 'Salvar...' : 'Salvar'}</button>
+          <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px', textAlign: 'center' }}>📝 Modificar Cadastro Completo</h3>
+            
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Fase Atual do Seguro (Funil / Status):
+              <select value={clienteEdicao.status} onChange={e => setClienteEdicao({...clienteEdicao, status: e.target.value})} style={{ width: '100%', padding: '8px', marginTop: '4px', fontWeight: 'bold' }}>
+                <option value="Cálculo">🧮 Cálculo / Cotação Inicial</option>
+                <option value="Proposta">📋 Proposta Comercial Ativa</option>
+                <option value="Apólice">📜 Apólice Fechada / Emitida</option>
+                <option value="Renovado">🔄 Seguro Renovado</option>
+                <option value="Não Renovado">❌ Não Renovado</option>
+              </select>
+            </label>
+
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Nome do Segurado: <input type="text" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} required style={{ width: '100%', padding: '6px', marginTop: '4px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>CPF / CNPJ: <input type="text" value={clienteEdicao.cpf_cnpj} onChange={e => setClienteEdicao({...clienteEdicao, cpf_cnpj: e.target.value})} required style={{ width: '100%', padding: '6px', marginTop: '4px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Modelo Carro: <input type="text" value={clienteEdicao.veiculo_modelo} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_modelo: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Placa do Veículo: <input type="text" value={clienteEdicao.veiculo_placa} onChange={e => setClienteEdicao({...clienteEdicao, veiculo_placa: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Seguradora: <input type="text" value={clienteEdicao.seguradora} onChange={e => setClienteEdicao({...clienteEdicao, seguradora: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px' }} /></label>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px' }}>Nº Apólice: <input type="text" value={clienteEdicao.numero_apolice} onChange={e => setClienteEdicao({...clienteEdicao, numero_apolice: e.target.value})} style={{ width: '100%', padding: '6px', marginTop: '4px' }} /></label>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+              <label style={{ fontSize: '12px' }}>Prêmio (R$): <input type="number" step="0.01" value={clienteEdicao.valor_calculado} onChange={e => setClienteEdicao({...clienteEdicao, valor_calculado: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
+              <label style={{ fontSize: '12px' }}>Comissão (R$): <input type="number" step="0.01" value={clienteEdicao.comissao_valor} onChange={e => setClienteEdicao({...clienteEdicao, comissao_valor: e.target.value})} style={{ width: '100%', padding: '6px' }} /></label>
             </div>
-          </form>
-        </div>
-      )}
-      {pdfVisualizacao && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: '#fff', width: '100%', maxWidth: '800px', height: '80vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ background: '#1e293b', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ color: '#fff', fontWeight: 'bold' }}>📄 Visualizador PDF</span><button onClick={() => setPdfVisualizacao(null)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Fechar</button></div>
-            <iframe src={pdfVisualizacao} style={{ width: '100%', height: '100%', border: 'none' }} title="Leitor PDF" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+              <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '6px 12px', background: '#e5e7eb', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
+
