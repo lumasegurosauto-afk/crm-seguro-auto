@@ -17,8 +17,6 @@ export default function ListaClientes() {
       setClientes(res || []);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
-      // ALERTA DE DIAGNÓSTICO: Mostra o erro real na tela do navegador
-      alert("🚨 Erro Crítico do Banco: " + (error.message || error));
       setClientes([]);
     } finally {
       setCarregando(false);
@@ -29,8 +27,22 @@ export default function ListaClientes() {
     atualizarLista();
   }, []);
 
+  // Abre a edição mapeando os dados do cliente, veículo e apólice juntos no formulário
   function abrirEdicao(cliente) {
-    setClienteEdicao({ ...cliente });
+    setClienteEdicao({
+      id: cliente.id,
+      nome: cliente.nome,
+      cpf_cnpj: cliente.cpf_cnpj,
+      telefone: cliente.telefone,
+      email: cliente.email,
+      // Puxa os dados atuais ou deixa em branco caso não existam
+      veiculo_modelo: cliente.veiculos?.marca_modelo || '',
+      veiculo_placa: cliente.veiculos?.placa || '',
+      seguradora: cliente.apolices?.seguradora || '',
+      numero_apolice: cliente.apolices?.numero_apolice || '',
+      inicio_vigencia: cliente.apolices?.inicio_vigencia || '',
+      fim_vigencia: cliente.apolices?.fim_vigencia || ''
+    });
   }
 
   async function salvarDadosEditados(e) {
@@ -38,7 +50,8 @@ export default function ListaClientes() {
     setSalvandoEdicao(true);
 
     try {
-      const { error } = await supabase
+      // 1. Atualiza os dados na tabela 'clientes'
+      const { error: errCli } = await supabase
         .from('clientes')
         .update({
           nome: clienteEdicao.nome,
@@ -48,13 +61,37 @@ export default function ListaClientes() {
         })
         .eq('id', clienteEdicao.id);
 
-      if (error) throw error;
+      if (errCli) throw errCli;
 
-      alert('Dados salvos com sucesso!');
+      // 2. Atualiza os dados do veículo na tabela 'propostas'
+      const { error: errProp } = await supabase
+        .from('propostas')
+        .update({
+          veiculo_modelo: clienteEdicao.veiculo_modelo,
+          veiculo_placa: clienteEdicao.veiculo_placa
+        })
+        .eq('cliente_id', clienteEdicao.id);
+
+      if (errProp) throw errProp;
+
+      // 3. Atualiza os dados de controle na tabela 'apolices'
+      const { error: errApol } = await supabase
+        .from('apolices')
+        .update({
+          numero_apolice: clienteEdicao.numero_apolice,
+          seguradora: clienteEdicao.seguradora,
+          inicio_vigencia: clienteEdicao.inicio_vigencia,
+          fim_vigencia: clienteEdicao.fim_vigencia
+        })
+        .eq('cliente_id', clienteEdicao.id);
+
+      if (errApol) throw errApol;
+
+      alert('🎉 Todas as informações do segurado foram atualizadas!');
       setClienteEdicao(null);
       await atualizarLista();
     } catch (error) {
-      alert(`Erro: ${error.message}`);
+      alert(`Erro ao salvar edições: ${error.message}`);
     } finally {
       setSalvandoEdicao(false);
     }
@@ -119,13 +156,16 @@ export default function ListaClientes() {
                 <th style={{ padding: '12px' }}>Nome</th>
                 <th style={{ padding: '12px' }}>CPF / CNPJ</th>
                 <th style={{ padding: '12px' }}>Contato</th>
-                <th style={{ padding: '12px' }}>Ações de Cadastro</th>
+                <th style={{ padding: '12px' }}>Veículo</th>
+                <th style={{ padding: '12px' }}>Ações</th>
                 <th style={{ padding: '12px' }}>Apólice</th>
               </tr>
             </thead>
             <tbody>
               {clientes.map((c) => {
+                const carro = c.veiculos;
                 let apolice = c.apolices;
+
                 return (
                   <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: '12px', fontWeight: 'bold', color: '#333' }}>{c.nome}</td>
@@ -133,6 +173,10 @@ export default function ListaClientes() {
                     <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>
                       📞 {c.telefone || 'Não informado'}<br />
                       ✉️ {c.email || 'Não informado'}
+                    </td>
+                    <td style={{ padding: '12px', color: '#0070f3', fontWeight: '500' }}>
+                      🚗 {carro?.marca_modelo || 'Nenhum carro vinculado'}<br />
+                      <span style={{ fontSize: '12px', color: '#666' }}>Placa: {carro?.placa || '-'}</span>
                     </td>
                     <td style={{ padding: '12px' }}>
                       <button 
@@ -176,32 +220,47 @@ export default function ListaClientes() {
           </table>
         )}
       </div>
-
       {clienteEdicao && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '30px', borderRadius: '8px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#333' }}>📝 Editar Informações do Segurado</h3>
+          <form onSubmit={salvarDadosEditados} style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#333', textAlign: 'center' }}>📝 Editar Cadastro Completo do Segurado</h3>
             
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>Nome:</label>
-              <input type="text" value={clienteEdicao.nome || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, nome: e.target.value }))} required style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+            {/* SEÇÃO 1: Dados Pessoais */}
+            <div style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>👤 Informações Pessoais</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: '#666' }}>Nome: <input type="text" value={clienteEdicao.nome || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, nome: e.target.value }))} required style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+                <label style={{ fontSize: '12px', color: '#666' }}>CPF / CNPJ: <input type="text" value={clienteEdicao.cpf_cnpj || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, cpf_cnpj: e.target.value }))} required style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <label style={{ fontSize: '12px', color: '#666' }}>Telefone: <input type="text" value={clienteEdicao.telefone || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, telefone: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+                <label style={{ fontSize: '12px', color: '#666' }}>E-mail: <input type="email" value={clienteEdicao.email || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, email: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+              </div>
             </div>
 
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>CPF / CNPJ:</label>
-              <input type="text" value={clienteEdicao.cpf_cnpj || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, cpf_cnpj: e.target.value }))} required style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+            {/* SEÇÃO 2: Dados do Veículo */}
+            <div style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>🚗 Dados do Veículo</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <label style={{ fontSize: '12px', color: '#666' }}>Modelo do Carro: <input type="text" value={clienteEdicao.veiculo_modelo || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, veiculo_modelo: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+                <label style={{ fontSize: '12px', color: '#666' }}>Placa: <input type="text" value={clienteEdicao.veiculo_placa || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, veiculo_placa: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+              </div>
             </div>
 
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>Telefone:</label>
-              <input type="text" value={clienteEdicao.telefone || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, telefone: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
-            </div>
-
+            {/* SEÇÃO 3: Controle e Apólice */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', color: '#666', marginBottom: '4px' }}>E-mail:</label>
-              <input type="email" value={clienteEdicao.email || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, email: e.target.value }))} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+              <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>📜 Controle da Apólice</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: '#666' }}>Seguradora: <input type="text" value={clienteEdicao.seguradora || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, seguradora: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+                <label style={{ fontSize: '12px', color: '#666' }}>Nº Controle/Apólice: <input type="text" value={clienteEdicao.numero_apolice || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, numero_apolice: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <label style={{ fontSize: '12px', color: '#666' }}>Início Vigência: <input type="date" value={clienteEdicao.inicio_vigencia || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, inicio_vigencia: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+                <label style={{ fontSize: '12px', color: '#666' }}>Fim Vigência: <input type="date" value={clienteEdicao.fim_vigencia || ''} onChange={(e) => setClienteEdicao(prev => ({ ...prev, fim_vigencia: e.target.value }))} style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }} /></label>
+              </div>
             </div>
 
+            {/* Botões de Ação */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '8px 16px', background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 Cancelar
