@@ -30,22 +30,24 @@ export default function Home() {
         trintaDiasPraFrente.setDate(hoje.getDate() + 30);
 
         clientes.forEach(c => {
-          // 1. Soma o faturamento se for uma proposta/apólice válida
           somaPremios += parseFloat(c.valor_calculado || 0);
           somaComissoes += parseFloat(c.comissao_valor || 0);
 
-          // 2. Alimenta o gráfico mensal
-          const dataVigencia = c.apolices?.inicio_vigencia || c.inicio_vigencia;
-          if (dataVigencia && typeof dataVigencia === 'string') {
-            const partes = dataVigencia.split('-');
+          // CORREÇÃO CRÍTICA DO GRÁFICO: Lendo a posição exata do mês na string da data
+          const dataBruta = c.apolices?.inicio_vigencia || c.inicio_vigencia;
+          
+          if (dataBruta && typeof dataBruta === 'string') {
+            const partes = dataBruta.split('-');
             if (partes.length >= 2) {
-              const mesNum = parseInt(partes[1], 10);
-              const indexMes = mesNum - 1;
-              if (indexMes >= 0 && indexMes <= 11) contagemMeses[indexMes] += 1;
+              const mesNum = parseInt(partes[1], 10); // FIX: Lendo partes[1] (o mês) em vez de partes
+              const indexMes = mesNum - 1; // Transforma o mês 01 em índice 0 (Janeiro)
+              
+              if (indexMes >= 0 && indexMes <= 11) {
+                contagemMeses[indexMes] += 1;
+              }
             }
           }
 
-          // 3. Filtra seguros vencendo nos próximos 30 dias para Alerta
           if (c.apolices?.fim_vigencia) {
             const fimVigencia = new Date(c.apolices.fim_vigencia);
             if (fimVigencia >= hoje && fimVigencia <= trintaDiasPraFrente) {
@@ -71,6 +73,7 @@ export default function Home() {
 
   async function handleLogout() { await supabase.auth.signOut(); window.location.href = '/login'; }
   const maiorVolume = Math.max(...dadosMapeados, 1);
+
   return (
     <div style={{ padding: '30px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -78,7 +81,6 @@ export default function Home() {
         <button onClick={handleLogout} style={{ padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>🔒 Sair</button>
       </div>
 
-      {/* BLOCO DE CARDS INDICADORES */}
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '20px' }}>
         <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', minWidth: '220px' }}>
           <h4 style={{ margin: '0 0 10px 0', color: '#666' }}>📋 Carteira Ativa</h4>
@@ -99,10 +101,9 @@ export default function Home() {
         <a href="/clientes" style={{ padding: '12px 20px', background: '#fff', color: '#0070f3', border: '1px solid #0070f3', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold' }}>👤 Ver Carteira</a>
       </div>
 
-      {/* SEÇÃO DE AVISOS DE RENOVAÇÃO (PRÓXIMOS 30 DIAS) */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px' }}>
         <h3 style={{ margin: '0 0 5px 0', color: '#ef4444' }}>⏰ Alertas de Renovação (Vencendo nos próximos 30 dias)</h3>
-        <p style={{ fontSize: '13px', color: '#666', margin: '0 0 15px 0' }}>Lista de clientes com apólices perto do fim. Ligue para garantir a renovação.</p>
+        <p style={{ fontSize: '13px', color: '#666', margin: '0 0 15px 0' }}>Lista de clientes com apólices perto do fim.</p>
         {carregando ? <p>Carregando alertas...</p> : alertasRenovacao.length === 0 ? (
           <p style={{ color: '#059669', fontWeight: 'bold', margin: 0 }}>✅ Nenhuma apólice vencendo nos próximos 30 dias!</p>
         ) : (
@@ -123,7 +124,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* GRÁFICO OPERACIONAL */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
         <h3 style={{ margin: '0 0 5px 0', color: '#333' }}>📊 Produção Mensal de Seguros</h3>
         {carregando ? <p>Calculando volumes...</p> : (
